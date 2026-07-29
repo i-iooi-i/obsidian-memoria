@@ -1258,6 +1258,10 @@
   flex-direction: column;
   gap: 12px;
 }
+.memoria-capture-modal {
+  max-height: var(--memoria-capture-modal-max-height, calc(100vh - 24px));
+  overflow: hidden;
+}
 .memoria-modal-title {
   font-size: 14px;
   font-weight: 600;
@@ -1281,6 +1285,17 @@
   overflow-y: auto;
   outline: none;
   transition: height 0.08s ease;
+}
+.memoria-capture-modal .memoria-modal-textarea {
+  min-height: min(
+    160px,
+    var(--memoria-capture-textarea-max-height, 160px)
+  );
+  max-height: var(--memoria-capture-textarea-max-height, 60vh);
+  flex: 1 1 auto;
+}
+.memoria-capture-modal .memoria-modal-btns {
+  flex: 0 0 auto;
 }
 .memoria-modal-textarea:focus {
   border-color: var(--interactive-accent);

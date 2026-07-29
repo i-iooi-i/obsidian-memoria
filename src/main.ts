@@ -315,7 +315,9 @@ export default class MemoriaPlugin extends Plugin {
 
     const backdrop = activeDocument.createElement("div");
     backdrop.addClass("memoria-modal-backdrop");
-    const box = backdrop.createDiv({ cls: "memoria-modal" });
+    const box = backdrop.createDiv({
+      cls: "memoria-modal memoria-capture-modal",
+    });
     box.createDiv({
       cls: "memoria-modal-title",
       text: t("quickCapture.title"),
@@ -331,15 +333,59 @@ export default class MemoriaPlugin extends Plugin {
       cls: "mod-cta",
     });
     activeDocument.body.appendChild(backdrop);
+
+    // iOS keeps the layout viewport at its pre-keyboard height. Track the
+    // visual viewport instead so the modal and its buttons stay above the IME.
+    const modalWindow = activeDocument.defaultView ?? window;
+    const visualViewport = modalWindow.visualViewport;
+    const syncVisualViewport = () => {
+      const viewportHeight =
+        visualViewport?.height ?? modalWindow.innerHeight;
+      const viewportWidth =
+        visualViewport?.width ?? modalWindow.innerWidth;
+      const offsetTop = visualViewport?.offsetTop ?? 0;
+      const offsetLeft = visualViewport?.offsetLeft ?? 0;
+
+      backdrop.setCssStyles({
+        top: `${offsetTop}px`,
+        left: `${offsetLeft}px`,
+        right: "auto",
+        bottom: "auto",
+        width: `${viewportWidth}px`,
+        height: `${viewportHeight}px`,
+      });
+      box.setCssProps({
+        "--memoria-capture-modal-max-height": `${Math.max(
+          220,
+          viewportHeight - 24
+        )}px`,
+        "--memoria-capture-textarea-max-height": `${Math.max(
+          96,
+          viewportHeight - 160
+        )}px`,
+      });
+    };
+    visualViewport?.addEventListener("resize", syncVisualViewport);
+    visualViewport?.addEventListener("scroll", syncVisualViewport);
+    syncVisualViewport();
+
     // v1.1.15: 插件卸载 / 禁用时自动清理弹窗（避免残留蒙版和 listener）
     // v1.4.11: 同时清理 mousedown 里挂出的全局 mouseup listener（见下方 pendingMouseUp）
     let pendingMouseUp: ((ev: MouseEvent) => void) | null = null;
-    this.register(() => {
-      backdrop.remove();
+    let closed = false;
+    const close = () => {
+      if (closed) return;
+      closed = true;
+      visualViewport?.removeEventListener("resize", syncVisualViewport);
+      visualViewport?.removeEventListener("scroll", syncVisualViewport);
       if (pendingMouseUp) {
         activeDocument.removeEventListener("mouseup", pendingMouseUp, true);
         pendingMouseUp = null;
       }
+      backdrop.remove();
+    };
+    this.register(() => {
+      close();
     });
     window.setTimeout(() => ta.focus(), 20);
 
@@ -351,7 +397,6 @@ export default class MemoriaPlugin extends Plugin {
     ta.addEventListener("input", autoResize);
     window.setTimeout(autoResize, 0);
 
-    const close = () => backdrop.remove();
     const submit = async () => {
       const text = ta.value.trim();
       if (!text) {
