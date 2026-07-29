@@ -1,6 +1,7 @@
 // ================= Memoria 插件入口 =================
 
 import {
+  ObsidianProtocolData,
   Plugin,
   TFile,
   WorkspaceLeaf,
@@ -93,6 +94,16 @@ export default class MemoriaPlugin extends Plugin {
       },
     });
 
+    // iOS Shortcuts / external apps:
+    //   obsidian://memoria-capture?vault=<vault>&content=<encoded text>
+    // Obsidian decodes query values before invoking the handler.
+    this.registerObsidianProtocolHandler(
+      "memoria-capture",
+      (params: ObsidianProtocolData) => {
+        void this.handleProtocolCapture(params);
+      }
+    );
+
     // 文件变化监听
     this.registerEvent(
       this.app.vault.on("modify", (f) => {
@@ -149,6 +160,11 @@ export default class MemoriaPlugin extends Plugin {
     await this.saveData(this.settings);
     // v2.0.0: language 可能被改，重新同步 i18n 状态
     initLocale(this.settings.language);
+  }
+
+  getCaptureUriTemplate(): string {
+    const vault = encodeURIComponent(this.app.vault.getName());
+    return `obsidian://memoria-capture?vault=${vault}&content=`;
   }
 
   async activateView(): Promise<void> {
@@ -407,5 +423,31 @@ export default class MemoriaPlugin extends Plugin {
     save.addEventListener("click", () => {
       void submit();
     });
+  }
+
+  private async handleProtocolCapture(
+    params: ObsidianProtocolData
+  ): Promise<void> {
+    const content =
+      typeof params.content === "string"
+        ? params.content
+        : typeof params.text === "string"
+          ? params.text
+          : "";
+
+    if (!content.trim()) {
+      await this.quickCapture();
+      return;
+    }
+
+    try {
+      await this.store.addMemo(content);
+      new Notice(t("notice.protocolCaptureSaved"));
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : t("error.unknown");
+      console.error("[Memoria] URI capture failed:", error);
+      new Notice(t("notice.protocolCaptureFailed", { msg: message }));
+    }
   }
 }

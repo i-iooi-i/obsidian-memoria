@@ -1,6 +1,6 @@
 // ================= 设置页 =================
 
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import type MemoriaPlugin from "./main";
 import { t } from "./i18n";
 
@@ -320,6 +320,29 @@ export class MemoriaSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
             // 立即重渲染所有 Memoria 视图，让 root class 跟着切换（不需要重启 OB）
             this.plugin.store.notifyChange();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName(t("settings.shortcut.heading"))
+      .setHeading();
+
+    new Setting(containerEl)
+      .setName(t("settings.shortcut.name"))
+      .setDesc(t("settings.shortcut.desc"))
+      .addButton((button) =>
+        button
+          .setButtonText(t("settings.shortcut.copy"))
+          .onClick(() => {
+            void navigator.clipboard
+              .writeText(this.plugin.getCaptureUriTemplate())
+              .then(() => {
+                new Notice(t("settings.shortcut.copied"));
+              })
+              .catch((error: unknown) => {
+                console.error("[Memoria] Failed to copy capture URI:", error);
+                new Notice(t("settings.shortcut.copyFailed"));
+              });
           })
       );
 

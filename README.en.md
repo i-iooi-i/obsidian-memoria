@@ -50,6 +50,7 @@ Memoria is exactly that: a flomo-style quick-capture experience inside Obsidian,
 **Quick capture**
 - Input card + `Ctrl/Cmd+Enter` to send
 - Global hotkey `Ctrl/Cmd+Shift+M` to pop a capture dialog from anywhere
+- iOS Shortcuts text capture through `obsidian://memoria-capture`
 - Images: paste / drag / file picker, auto-saved as vault attachments
 - Tag autocomplete (pulls from your whole vault), list Tab indentation, smart Enter continuation
 - Draft auto-saved — no loss on restart
@@ -134,6 +135,21 @@ Then in Obsidian → Settings → Community plugins → enable **Memoria** → c
 | Indent / outdent list item | `Tab` / `Shift+Tab` |
 | Enter edit mode | Double-click card (long-press on mobile) |
 | Exit edit mode | `Esc` |
+
+---
+
+## 📱 iOS Shortcuts (beta)
+
+Memoria can receive text from an iOS Shortcut and save it as a memo at the current time:
+
+1. In Memoria settings, find “iOS Shortcuts (beta)” and select “Copy URI template”.
+2. Create a Shortcut with Ask for Input, URL Encode, URL, and Open URLs actions.
+3. Paste the copied URI template into the URL action, then append the URL Encode result.
+4. Run the Shortcut. Obsidian opens the target vault and Memoria confirms the saved memo.
+
+You can add the Shortcut to the Home Screen or Siri, or configure it to receive text from the share sheet. Opening the URI without a `content` parameter shows Memoria's quick-capture dialog instead.
+
+> iOS must wake Obsidian before a community plugin can run, so a cold start waits for the target vault and plugin to load. This beta accepts text only, not images.
 
 ---
 
