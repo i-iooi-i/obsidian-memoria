@@ -1855,6 +1855,16 @@
     max-width: 320px;
   }
   /* Lightbox 按钮更小 */
+  .memoria-lightbox-counter {
+    top: max(18px, calc(env(safe-area-inset-top, 0px) + 16px));
+  }
+  .memoria-lightbox-close {
+    top: max(56px, calc(env(safe-area-inset-top, 0px) + 16px));
+    right: max(14px, calc(env(safe-area-inset-right, 0px) + 14px));
+    width: 40px;
+    height: 40px;
+    z-index: 10003;
+  }
   .memoria-lightbox-nav {
     width: 36px;
     height: 48px;
@@ -4495,3 +4505,12 @@
 
 
 
+.memoria-image-picker {
+  position: fixed;
+  top: 0;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}

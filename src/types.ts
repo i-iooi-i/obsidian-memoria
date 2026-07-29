@@ -81,6 +81,8 @@ export interface MemoriaSettings {
    *   只影响"第一次打开 Memoria"时显示哪个；用户点切换按钮时的临时切换
    *   只在当前会话生效，不回写此设置（避免"这次我想看月历"被当成"我改默认值"）*/
   defaultOverviewMode: "heatmap" | "calendar" | "buddy";
+  /** Obsidian 恢复完工作区后，是否自动打开或切换到 Memoria。 */
+  openOnStartup: boolean;
   /** v2.1.0: 宠物系统
    *   未孵化时 buddy 字段为 null；首次切到宠物视图时引导孵化 */
   buddy: BuddyData | null;
@@ -123,6 +125,7 @@ export const DEFAULT_SETTINGS: MemoriaSettings = {
   language: "auto",
   sendHotkey: "ctrl-enter",
   defaultOverviewMode: "heatmap",
+  openOnStartup: false,
   buddy: null,
   mobileInputStyle: "fab",
 };

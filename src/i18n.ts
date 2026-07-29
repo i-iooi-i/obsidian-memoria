@@ -371,6 +371,8 @@ const zhCN: Dict = {
   "settings.defaultOverview.heatmap": "🔥 热力图（默认）",
   "settings.defaultOverview.calendar": "📅 月历",
   "settings.defaultOverview.buddy": "🐾 宠物",
+  "settings.openOnStartup.name": "启动时打开 Memoria",
+  "settings.openOnStartup.desc": "Obsidian 恢复完工作区后，自动打开或切换到 Memoria。不会关闭已有标签页。",
 
   // v2.1.0: 宠物系统
   "toolbar.toBuddy": "切换为宠物",
@@ -896,6 +898,8 @@ const enUS: Dict = {
   "settings.defaultOverview.heatmap": "🔥 Heatmap (default)",
   "settings.defaultOverview.calendar": "📅 Calendar",
   "settings.defaultOverview.buddy": "🐾 Buddy",
+  "settings.openOnStartup.name": "Open Memoria on startup",
+  "settings.openOnStartup.desc": "Open or reveal Memoria after Obsidian restores the workspace. Existing tabs remain open.",
 
   // v2.1.0: Buddy companion system
   "toolbar.toBuddy": "Switch to buddy",

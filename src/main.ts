@@ -123,6 +123,13 @@ export default class MemoriaPlugin extends Plugin {
     );
 
     this.addSettingTab(new MemoriaSettingTab(this.app, this));
+
+    this.app.workspace.onLayoutReady(() => {
+      if (!this.settings.openOnStartup) return;
+      void this.activateView().catch((err: unknown) => {
+        console.error("[Memoria] Failed to open on startup:", err);
+      });
+    });
   }
 
   onunload(): void {

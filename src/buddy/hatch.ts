@@ -86,7 +86,7 @@ export function hatch(vaultName: string, chosenName: string): HatchedBuddy {
   const hatWeights: Array<[HatVariant, number]> = [
     ["none", 7],
     ["crown", 1], ["tophat", 1], ["propeller", 1], ["halo", 1],
-    ["wizard", 1], ["beanie", 1], ["duck", 1],
+    ["wizard", 1], ["beanie", 1], ["duckling", 1],
   ];
   const hatTotal = hatWeights.reduce((s, [, w]) => s + w, 0);
   let hatPick = hatRoll * hatTotal;

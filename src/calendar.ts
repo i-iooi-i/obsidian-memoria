@@ -15,6 +15,8 @@ export interface CalendarOptions {
   activeDate?: string | null;
   /** 点击某天的回调 */
   onPickDate: (date: string) => void;
+  /** 当前显示月份变化时通知外层，避免父级重渲染后回到本月 */
+  onMonthChange?: (year: number, month: number) => void;
 }
 
 /**
@@ -31,6 +33,7 @@ export function renderCalendar(
   const today = new Date();
   let year = initYear ?? today.getFullYear();
   let month = initMonth ?? today.getMonth();
+  let activeDate = options.activeDate ?? null;
 
   const container = parent.createDiv({ cls: "memoria-calendar" });
 
@@ -56,6 +59,7 @@ export function renderCalendar(
     title.addEventListener("click", () => {
       year = today.getFullYear();
       month = today.getMonth();
+      options.onMonthChange?.(year, month);
       render();
     });
     const nextBtn = head.createEl("button", {
@@ -68,6 +72,7 @@ export function renderCalendar(
         month = 11;
         year--;
       } else month--;
+      options.onMonthChange?.(year, month);
       render();
     });
     nextBtn.addEventListener("click", () => {
@@ -75,6 +80,7 @@ export function renderCalendar(
         month = 0;
         year++;
       } else month++;
+      options.onMonthChange?.(year, month);
       render();
     });
 
@@ -105,7 +111,7 @@ export function renderCalendar(
           "memoria-cal-cell" +
           (count > 0 ? " has-memo" : "") +
           (key === todayStr ? " is-today" : "") +
-          (key === options.activeDate ? " is-active" : ""),
+          (key === activeDate ? " is-active" : ""),
       });
       cell.setAttr("title", count > 0 ? t("calendar.dayCount", { date: key, n: count }) : key);
       cell.createDiv({ cls: "memoria-cal-num", text: String(day) });
@@ -117,7 +123,11 @@ export function renderCalendar(
         dot.addClass(`level-${level}`);
       }
       if (count > 0 || key === todayStr) {
-        cell.addEventListener("click", () => options.onPickDate(key));
+        cell.addEventListener("click", () => {
+          activeDate = activeDate === key ? null : key;
+          options.onPickDate(key);
+          render();
+        });
       }
     }
   };

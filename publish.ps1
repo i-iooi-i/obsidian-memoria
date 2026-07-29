@@ -5,7 +5,7 @@
 
 .DESCRIPTION
   完整流程：
-    1. 从源码目录（memoria-v1.1.1-source）执行 npm run build
+    1. 从源码目录（memoria-source）执行 lint、类型检查和生产构建
     2. 把 main.js / manifest.json / styles.css / CHANGELOG.md 同步到本目录
     3. 同步到 Obsidian vault 的插件加载目录（方便本地测试）
     4. 读取 manifest.json 得到新版本号 vX.Y.Z
@@ -53,7 +53,7 @@ $ErrorActionPreference = 'Stop'
 # v2.2.0: 路径从 C:\Users\zololiu\Desktop\ 迁移到 E:\Obsidian 插件开发\
 $ReleaseDir = 'E:\Obsidian 插件开发\memoria-release'
 $SourceDir  = 'E:\Obsidian 插件开发\memoria-source'
-$VaultDir   = 'D:\NAS\Notes\Obsidian\.obsidian\plugins\memoria'
+$VaultDir   = 'D:\Nextcloud\Note\Ob_Life\.obsidian\plugins\memoria'
 $GitHubOwner = 'i-iooi-i'
 $GitHubRepo  = 'obsidian-memoria'
 
@@ -115,12 +115,18 @@ function Copy-Tree {
 Set-Location $ReleaseDir
 
 if (-not $SkipBuild) {
-  Write-Step "Step 1/6  编译源码（npm run build）"
+  Write-Step "Step 1/6  检查并编译源码（lint + typecheck + build）"
   Push-Location $SourceDir
   try {
     if ($DryRun) {
+      Write-Info "[DRY] npm run lint" 'DarkGray'
+      Write-Info "[DRY] npm run typecheck" 'DarkGray'
       Write-Info "[DRY] npm run build" 'DarkGray'
     } else {
+      npm run lint
+      if ($LASTEXITCODE -ne 0) { throw "npm run lint 失败" }
+      npm run typecheck
+      if ($LASTEXITCODE -ne 0) { throw "npm run typecheck 失败" }
       npm run build
       if ($LASTEXITCODE -ne 0) { throw "npm run build 失败" }
     }

@@ -212,6 +212,18 @@ export class MemoriaSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName(t("settings.openOnStartup.name"))
+      .setDesc(t("settings.openOnStartup.desc"))
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.openOnStartup)
+          .onChange(async (value) => {
+            this.plugin.settings.openOnStartup = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
       .setName(t("settings.heading.newFeatures"))
       .setHeading();
 

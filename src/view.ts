@@ -80,6 +80,8 @@ export class MemoriaView extends ItemView {
   };
   private unsubscribe: (() => void) | null = null;
   private inputEl!: HTMLTextAreaElement;
+  /** Keep the native image picker alive while iOS hands control to Photos/Camera. */
+  private imagePickerEl: HTMLInputElement | null = null;
   private listEl!: HTMLElement;
   private sidebarEl!: HTMLElement;
   private searchEl!: HTMLInputElement;
@@ -92,6 +94,7 @@ export class MemoriaView extends ItemView {
    *  v2.0.20: 初始值从 settings.defaultOverviewMode 读（老用户默认 heatmap 不变）
    *  在 constructor 里设置实际初值，这里只给类型 */
   private overviewMode: "heatmap" | "calendar" | "buddy" = "heatmap";
+  private calendarDisplay: { year: number; month: number } | null = null;
   /** v2.0.20: 当前会话中用户是否手动切换过 overviewMode
    *  - false：跟随 settings.defaultOverviewMode（用户在设置页改默认值时立即生效）
    *  - true：锁定为用户当前选择（改设置默认值不影响当前会话） */
@@ -223,6 +226,7 @@ export class MemoriaView extends ItemView {
   async onClose(): Promise<void> {
     this.workspaceLeafEl?.removeClass("memoria-workspace-leaf");
     this.workspaceLeafEl = null;
+    this.disposeImagePicker();
     if (this.unsubscribe) this.unsubscribe();
     if (this.tagSuggest) {
       this.tagSuggest.destroy();
@@ -1316,19 +1320,46 @@ export class MemoriaView extends ItemView {
 
   /** 用浏览器 file picker 选图片 */
   private pickImageFromDisk(): void {
+    // iOS may discard a detached, locally scoped file input while Photos/Camera is
+    // open. Keep one attached to the active document and referenced by the view
+    // until the picker returns.
+    this.disposeImagePicker();
+
     const inp = activeDocument.createElement("input");
     inp.type = "file";
     inp.accept = "image/*";
     inp.multiple = true;
+    inp.tabIndex = -1;
+    inp.className = "memoria-image-picker";
+    inp.setAttribute("aria-hidden", "true");
+
     inp.addEventListener("change", () => {
-      void (async () => {
       const files = Array.from(inp.files ?? []);
-      for (const f of files) await this.handleImageFile(f);
-      })().catch((err) => {
+      this.disposeImagePicker(inp);
+      void this.importSelectedImages(files).catch((err: unknown) => {
         console.error("[Memoria] Failed to import selected image:", err);
       });
-    });
+    }, { once: true });
+    inp.addEventListener("cancel", () => {
+      this.disposeImagePicker(inp);
+    }, { once: true });
+
+    activeDocument.body.appendChild(inp);
+    this.imagePickerEl = inp;
+    inp.value = "";
     inp.click();
+  }
+
+  private disposeImagePicker(inp: HTMLInputElement | null = this.imagePickerEl): void {
+    if (!inp) return;
+    if (this.imagePickerEl === inp) this.imagePickerEl = null;
+    inp.remove();
+  }
+
+  private async importSelectedImages(files: File[]): Promise<void> {
+    for (const file of files) {
+      await this.handleImageFile(file);
+    }
   }
 
   /** 把一张图片保存到附件目录，并把 ![[]] 引用插入输入框 */
@@ -1786,6 +1817,10 @@ export class MemoriaView extends ItemView {
    */
   public focusOnDate(date: string): void {
     this.filter.date = date;
+    this.calendarDisplay = {
+      year: Number(date.slice(0, 4)),
+      month: Number(date.slice(5, 7)) - 1,
+    };
     this.filter.preset = "all";
     this.filter.year = null;
     this.filter.tag = null;
@@ -2022,15 +2057,34 @@ export class MemoriaView extends ItemView {
     if (this.overviewMode === "heatmap") {
       this.renderHeatmap(content, memos);
     } else if (this.overviewMode === "calendar") {
+      const activeCalendarMonth = this.filter.date
+        ? {
+            year: Number(this.filter.date.slice(0, 4)),
+            month: Number(this.filter.date.slice(5, 7)) - 1,
+          }
+        : null;
+      const shown =
+        this.calendarDisplay ??
+        activeCalendarMonth ?? {
+          year: new Date().getFullYear(),
+          month: new Date().getMonth(),
+        };
       renderCalendar(content, memos, {
         activeDate: this.filter.date,
+        onMonthChange: (year, month) => {
+          this.calendarDisplay = { year, month };
+        },
         onPickDate: (d) => {
+          this.calendarDisplay = {
+            year: Number(d.slice(0, 4)),
+            month: Number(d.slice(5, 7)) - 1,
+          };
           this.filter.date = this.filter.date === d ? null : d;
           this.filter.preset = "all";
           this.pageLimit = this.getInitialPageLimit();
-          this.renderAll();
+          this.renderList();
         },
-      });
+      }, shown.year, shown.month);
     } else {
       // v2.1.0: 宠物视图
       this.renderBuddyView(content, memos);
@@ -2342,6 +2396,10 @@ export class MemoriaView extends ItemView {
           });
           // 点击跳到那天
           cell.addEventListener("click", () => {
+            this.calendarDisplay = {
+              year: Number(key.slice(0, 4)),
+              month: Number(key.slice(5, 7)) - 1,
+            };
             this.filter.date = key;
             this.filter.preset = "all";
             this.renderList();
@@ -3217,7 +3275,7 @@ export class MemoriaView extends ItemView {
     //   改到最后调用 —— 这样按钮能放到 card 的最后一个元素（tagRow 或 imgGrid）里做水平对齐，
     //   不会因为"body 后面还有图片/标签"而错位。
     if (textForMd.trim()) {
-      const body = card.querySelector(".memoria-card-body");
+      const body = card.querySelector<HTMLElement>(".memoria-card-body");
       if (body) this.applyCollapseIfNeeded(body, card);
     }
   }

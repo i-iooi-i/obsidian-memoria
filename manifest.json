@@ -1,7 +1,7 @@
 {
   "id": "memoria",
   "name": "Memoria",
-  "version": "2.3.7",
+  "version": "2.3.8",
   "minAppVersion": "1.7.2",
   "description": "Waterfall-style memo plugin for flomo-like fleeting thoughts, stored as plain Markdown.",
   "author": "i-iooi-i",
