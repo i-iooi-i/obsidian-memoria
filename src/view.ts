@@ -553,6 +553,20 @@ export class MemoriaView extends ItemView {
     });
   }
 
+  /** Open the same capture surface used by the mobile FAB.
+   *  External URI entry points call this after revealing the Memoria leaf. */
+  openCaptureInput(): void {
+    this.syncFabMode();
+    if (this.settings.mobileInputStyle === "fab") {
+      this.expandFabInput();
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      this.inputEl?.focus();
+    });
+  }
+
   /** v2.2.0: 收起 FAB 输入框。
    *  force=true（默认调用方：点 ✕ / 发送成功 / 退出编辑）→ 无条件收起卡片。
    *    草稿已实时 saveDraft，下次展开 loadDraft 自动恢复，不会丢内容。

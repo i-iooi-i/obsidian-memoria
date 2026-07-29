@@ -2,6 +2,7 @@
 
 import {
   ObsidianProtocolData,
+  Platform,
   Plugin,
   TFile,
   WorkspaceLeaf,
@@ -181,6 +182,23 @@ export default class MemoriaPlugin extends Plugin {
     await this.app.workspace.revealLeaf(leaf);
   }
 
+  private async activateCaptureView(): Promise<void> {
+    const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_MEMORIA);
+    const leaf = existing[0] ?? this.app.workspace.getLeaf("tab");
+
+    if (!existing.length) {
+      await leaf.setViewState({
+        type: VIEW_TYPE_MEMORIA,
+        active: true,
+      });
+    }
+
+    await this.app.workspace.revealLeaf(leaf);
+    if (leaf.view instanceof MemoriaView) {
+      leaf.view.openCaptureInput();
+    }
+  }
+
   async activateStatsView(): Promise<void> {
     const existing = this.app.workspace.getLeavesOfType(
       VIEW_TYPE_MEMORIA_STATS
@@ -302,6 +320,13 @@ export default class MemoriaPlugin extends Plugin {
   }
 
   private async quickCapture(): Promise<void> {
+    // Mobile already has a keyboard-safe FAB input card. Reuse it instead of
+    // opening the desktop modal, which iOS WebView can place behind the IME.
+    if (Platform.isMobile) {
+      await this.activateCaptureView();
+      return;
+    }
+
     // v1.1.15: 防重复打开 —— 连按两次 Ctrl+Shift+M 之前会挂两层 backdrop，
     //   第一次关只能关最上层，底下一层变成拦截所有点击的"幽灵蒙版"。
     const existing = activeDocument.querySelector(
@@ -315,9 +340,7 @@ export default class MemoriaPlugin extends Plugin {
 
     const backdrop = activeDocument.createElement("div");
     backdrop.addClass("memoria-modal-backdrop");
-    const box = backdrop.createDiv({
-      cls: "memoria-modal memoria-capture-modal",
-    });
+    const box = backdrop.createDiv({ cls: "memoria-modal" });
     box.createDiv({
       cls: "memoria-modal-title",
       text: t("quickCapture.title"),
@@ -334,41 +357,6 @@ export default class MemoriaPlugin extends Plugin {
     });
     activeDocument.body.appendChild(backdrop);
 
-    // iOS keeps the layout viewport at its pre-keyboard height. Track the
-    // visual viewport instead so the modal and its buttons stay above the IME.
-    const modalWindow = activeDocument.defaultView ?? window;
-    const visualViewport = modalWindow.visualViewport;
-    const syncVisualViewport = () => {
-      const viewportHeight =
-        visualViewport?.height ?? modalWindow.innerHeight;
-      const viewportWidth =
-        visualViewport?.width ?? modalWindow.innerWidth;
-      const offsetTop = visualViewport?.offsetTop ?? 0;
-      const offsetLeft = visualViewport?.offsetLeft ?? 0;
-
-      backdrop.setCssStyles({
-        top: `${offsetTop}px`,
-        left: `${offsetLeft}px`,
-        right: "auto",
-        bottom: "auto",
-        width: `${viewportWidth}px`,
-        height: `${viewportHeight}px`,
-      });
-      box.setCssProps({
-        "--memoria-capture-modal-max-height": `${Math.max(
-          220,
-          viewportHeight - 24
-        )}px`,
-        "--memoria-capture-textarea-max-height": `${Math.max(
-          96,
-          viewportHeight - 160
-        )}px`,
-      });
-    };
-    visualViewport?.addEventListener("resize", syncVisualViewport);
-    visualViewport?.addEventListener("scroll", syncVisualViewport);
-    syncVisualViewport();
-
     // v1.1.15: 插件卸载 / 禁用时自动清理弹窗（避免残留蒙版和 listener）
     // v1.4.11: 同时清理 mousedown 里挂出的全局 mouseup listener（见下方 pendingMouseUp）
     let pendingMouseUp: ((ev: MouseEvent) => void) | null = null;
@@ -376,8 +364,6 @@ export default class MemoriaPlugin extends Plugin {
     const close = () => {
       if (closed) return;
       closed = true;
-      visualViewport?.removeEventListener("resize", syncVisualViewport);
-      visualViewport?.removeEventListener("scroll", syncVisualViewport);
       if (pendingMouseUp) {
         activeDocument.removeEventListener("mouseup", pendingMouseUp, true);
         pendingMouseUp = null;

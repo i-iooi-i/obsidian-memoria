@@ -147,7 +147,7 @@ Memoria can receive text from an iOS Shortcut and save it as a memo at the curre
 3. Paste the copied URI template into the URL action, then append the URL Encode result.
 4. Run the Shortcut. Obsidian opens the target vault and Memoria confirms the saved memo.
 
-You can add the Shortcut to the Home Screen or Siri, or configure it to receive text from the share sheet. Opening the URI without a `content` parameter shows Memoria's quick-capture dialog instead.
+You can add the Shortcut to the Home Screen or Siri, or configure it to receive text from the share sheet. Opening the URI without a `content` parameter reveals the same keyboard-safe input card as the mobile ➕ button; desktop keeps the quick-capture dialog.
 
 > iOS must wake Obsidian before a community plugin can run, so a cold start waits for the target vault and plugin to load. This beta accepts text only, not images.
 
