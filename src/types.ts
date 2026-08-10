@@ -62,6 +62,8 @@ export interface MemoriaSettings {
   trashMaxItems: number;
   /** v2.0.0: 视图密度。compact = 紧凑模式，每张卡只显示前几行 */
   density: "cozy" | "compact";
+  /** v2.4.0: 桌面端输入区与笔记流的阅读宽度。移动端始终自适应。 */
+  contentWidth: "focused" | "balanced" | "wide";
   /** v2.0.0: 启用 Vim 快捷键 */
   enableVimKeys: boolean;
   /** v2.0.0: 启用情感色彩可视化（卡片左边色条） */
@@ -119,6 +121,7 @@ export const DEFAULT_SETTINGS: MemoriaSettings = {
   dailyGoal: 5,
   trashMaxItems: 300,
   density: "cozy",
+  contentWidth: "balanced",
   enableVimKeys: false,
   enableMoodColoring: false,
   enableSmartReview: true,

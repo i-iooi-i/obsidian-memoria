@@ -9,7 +9,7 @@
 [![release](https://img.shields.io/github/v/release/i-iooi-i/obsidian-memoria?include_prereleases&label=release)](https://github.com/i-iooi-i/obsidian-memoria/releases)
 [![downloads](https://img.shields.io/github/downloads/i-iooi-i/obsidian-memoria/total)](https://github.com/i-iooi-i/obsidian-memoria/releases)
 [![license](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
-[![obsidian](https://img.shields.io/badge/Obsidian-1.4.0%2B-purple)](https://obsidian.md)
+[![obsidian](https://img.shields.io/badge/Obsidian-1.7.2%2B-purple)](https://obsidian.md)
 
 **English** · [简体中文](#简体中文)
 

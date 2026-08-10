@@ -64,12 +64,25 @@ export class StatsView extends ItemView {
     }
 
     const body = contentEl.createDiv({ cls: "memoria-stats-body" });
-    this.renderOverview(body);
-    this.renderYearHeatmap(body);
-    this.renderTopTags(body);
-    this.renderHourlyChart(body);
-    this.renderHighlights(body);
-    this.renderTagCloud(body);
+    const sections: Array<[string, () => void]> = [
+      ["overview", () => this.renderOverview(body)],
+      ["year-heatmap", () => this.renderYearHeatmap(body)],
+      ["top-tags", () => this.renderTopTags(body)],
+      ["writing-rhythm", () => this.renderWritingRhythm(body)],
+      ["highlights", () => this.renderHighlights(body)],
+      ["tag-cloud", () => this.renderTagCloud(body)],
+    ];
+    for (const [name, renderSection] of sections) {
+      this.renderSectionSafely(name, renderSection);
+    }
+  }
+
+  private renderSectionSafely(name: string, renderSection: () => void): void {
+    try {
+      renderSection();
+    } catch (error) {
+      console.error(`[Memoria] Failed to render stats section: ${name}`, error);
+    }
   }
 
   // -------- 总览 --------
@@ -407,54 +420,177 @@ export class StatsView extends ItemView {
     });
   }
 
-  // -------- 小时分布 --------
-  private renderHourlyChart(parent: HTMLElement): void {
+  // -------- 写作节律：小时曲线 + 星期圆点 --------
+  private renderWritingRhythm(parent: HTMLElement): void {
     const section = parent.createDiv({ cls: "mstat-section" });
     const titleRow = section.createDiv({ cls: "mstat-title-row" });
     titleRow.createDiv({
       cls: "mstat-title",
-      text: t("stats.section.hourly"),
+      text: t("stats.section.rhythm"),
     });
     titleRow.createDiv({
       cls: "mstat-subtitle",
       text: t("stats.hourly.subtitle", { n: this.memos.length }),
     });
 
+    const rhythmGrid = section.createDiv({ cls: "mstat-rhythm-grid" });
+    this.renderSectionSafely("hourly-rhythm", () => this.renderHourlyRhythm(rhythmGrid));
+    this.renderSectionSafely("weekday-rhythm", () => this.renderWeekdayRhythm(rhythmGrid));
+  }
+
+  private renderHourlyRhythm(parent: HTMLElement): void {
+    const panel = parent.createDiv({ cls: "mstat-rhythm-panel mstat-rhythm-hour" });
+    panel.createDiv({ cls: "mstat-rhythm-heading", text: t("stats.section.hourly") });
+
     const buckets: number[] = Array.from({ length: 24 }, () => 0);
     for (const m of this.memos) buckets[m.datetime.getHours()]++;
     const max = Math.max(1, ...buckets);
+    const peakHour = buckets.indexOf(max);
+    const peakPct = ((max / this.memos.length) * 100).toFixed(1);
 
-    // v1.1.17: 手机端 24 列 × ~14px label 需要约 340px，必然超过窄屏可用宽度。
-    //   给柱图套一个独立滚动容器，让它"自己横向滚"而不是推整页滚动。
-    const scrollWrap = section.createDiv({ cls: "mstat-bar-chart-scroll" });
-    const chart = scrollWrap.createDiv({
-      cls: "mstat-bar-chart mstat-bar-chart-hour",
-    });
-    for (let h = 0; h < 24; h++) {
-      const col = chart.createDiv({ cls: "mstat-bar-col" });
-      const barWrap = col.createDiv({ cls: "mstat-bar-wrap" });
-      const bar = barWrap.createDiv({
-        cls:
-          "mstat-bar" +
-          (buckets[h] === max && buckets[h] > 0 ? " is-max" : "") +
-          (buckets[h] === 0 ? " is-empty" : ""),
-      });
-      const heightPct = (buckets[h] / max) * 100;
-      // 让 0 条的小时也有 1px 占位，避免视觉上"突然消失"
-      bar.style.height = buckets[h] === 0 ? "2px" : `${heightPct}%`;
-      bar.setAttr("title", t("stats.hourly.barTip", { hh: pad(h), n: buckets[h] }));
-      col.createDiv({ cls: "mstat-bar-label", text: pad(h) });
+    const summary = panel.createDiv({ cls: "mstat-rhythm-summary" });
+    const summaryItems = [
+      { label: t("stats.hourly.kpi.peak"), value: `${pad(peakHour)}:00` },
+      { label: t("stats.hourly.kpi.count"), value: t("stats.hourly.countValue", { n: max }) },
+      { label: t("stats.hourly.kpi.share"), value: `${peakPct}%` },
+    ];
+    for (const item of summaryItems) {
+      const metric = summary.createDiv({ cls: "mstat-rhythm-metric" });
+      metric.createDiv({ cls: "mstat-rhythm-metric-value", text: item.value });
+      metric.createDiv({ cls: "mstat-rhythm-metric-label", text: item.label });
     }
 
-    const peakHour = buckets.indexOf(max);
-    const desc = section.createDiv({ cls: "mstat-desc" });
+    const scrollWrap = panel.createDiv({ cls: "mstat-rhythm-scroll" });
+    const chartShell = scrollWrap.createDiv({ cls: "mstat-rhythm-chart-shell" });
+    const yAxis = chartShell.createDiv({ cls: "mstat-rhythm-y-axis" });
+    for (const value of [max, Math.round(max / 2), 0]) {
+      yAxis.createSpan({ text: t("stats.hourly.axisCount", { n: value }) });
+    }
+    const plot = chartShell.createDiv({ cls: "mstat-rhythm-plot" });
+    const svg = plot.createSvg("svg", {
+      cls: "mstat-rhythm-svg",
+      attr: {
+        viewBox: "0 0 660 150",
+        preserveAspectRatio: "none",
+        role: "img",
+        "aria-label": t("stats.section.hourly"),
+      },
+    });
+
+    const left = 8;
+    const right = 652;
+    const top = 12;
+    const baseline = 138;
+    const plotHeight = baseline - top;
+    const xAt = (hour: number): number => left + (hour / 23) * (right - left);
+    const yAt = (count: number): number => baseline - (count / max) * plotHeight;
+
+    for (const ratio of [0, 0.5, 1]) {
+      const y = top + ratio * plotHeight;
+      svg.createSvg("line", {
+        cls: "mstat-rhythm-gridline",
+        attr: { x1: left, y1: y, x2: right, y2: y },
+      });
+    }
+
+    const points = buckets.map((count, hour) => [xAt(hour), yAt(count)] as const);
+    const linePath = points
+      .map(
+        ([x, y], index) =>
+          `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`
+      )
+      .join(" ");
+    const areaPath = `M ${left} ${baseline} ${linePath.replace(/^M/, "L")} L ${right} ${baseline} Z`;
+
+    svg.createSvg("path", {
+      cls: "mstat-rhythm-area",
+      attr: { d: areaPath },
+    });
+    svg.createSvg("path", {
+      cls: "mstat-rhythm-line",
+      attr: { d: linePath },
+    });
+
+    points.forEach(([x, y], hour) => {
+      svg.createSvg("circle", {
+        cls:
+          "mstat-rhythm-point" +
+          (hour === peakHour ? " is-peak" : "") +
+          (buckets[hour] === 0 ? " is-empty" : ""),
+        attr: {
+          cx: x,
+          cy: y,
+          r: hour === peakHour ? 4.5 : 2.5,
+          "aria-label": t("stats.hourly.barTip", {
+            hh: pad(hour),
+            n: buckets[hour],
+          }),
+        },
+      });
+    });
+
+    const xAxis = plot.createDiv({ cls: "mstat-rhythm-x-axis" });
+    for (const hour of [0, 6, 12, 18, 23]) {
+      xAxis.createSpan({ text: `${pad(hour)}:00` });
+    }
+    plot.createDiv({ cls: "mstat-rhythm-axis-caption", text: t("stats.hourly.axisTime") });
+
+    const desc = panel.createDiv({ cls: "mstat-desc" });
     desc.setText(
       t("stats.hourly.peak", {
         hh: pad(peakHour),
         n: max,
-        pct: ((max / this.memos.length) * 100).toFixed(1),
+        pct: peakPct,
       })
     );
+  }
+
+  private renderWeekdayRhythm(parent: HTMLElement): void {
+    const panel = parent.createDiv({ cls: "mstat-rhythm-panel mstat-rhythm-week" });
+    panel.createDiv({ cls: "mstat-rhythm-heading", text: t("stats.section.weekday") });
+
+    const labels = [
+      t("stats.weekday.mon"),
+      t("stats.weekday.tue"),
+      t("stats.weekday.wed"),
+      t("stats.weekday.thu"),
+      t("stats.weekday.fri"),
+      t("stats.weekday.sat"),
+      t("stats.weekday.sun"),
+    ];
+    const buckets: number[] = Array.from({ length: 7 }, () => 0);
+    for (const memo of this.memos) {
+      const mondayFirstIndex = (memo.datetime.getDay() + 6) % 7;
+      buckets[mondayFirstIndex]++;
+    }
+    const max = Math.max(1, ...buckets);
+    const peakDay = buckets.indexOf(max);
+    const dots = panel.createDiv({ cls: "mstat-weekday-dots" });
+
+    buckets.forEach((count, day) => {
+      const ratio = count / max;
+      const item = dots.createDiv({ cls: "mstat-weekday-item" });
+      const dotWrap = item.createDiv({ cls: "mstat-weekday-dot-wrap" });
+      const dot = dotWrap.createSpan({
+        cls: "mstat-weekday-dot" + (day === peakDay ? " is-peak" : ""),
+        attr: { title: `${labels[day]} · ${count}` },
+      });
+      const size = count === 0 ? 10 : 14 + Math.sqrt(ratio) * 30;
+      dot.style.width = `${size}px`;
+      dot.style.height = `${size}px`;
+      dot.style.opacity = count === 0 ? "0.18" : String(0.38 + ratio * 0.62);
+      item.createDiv({ cls: "mstat-weekday-label", text: labels[day] });
+      item.createDiv({ cls: "mstat-weekday-count", text: String(count) });
+    });
+
+    panel.createDiv({
+      cls: "mstat-desc",
+      text: t("stats.weekday.peak", {
+        day: labels[peakDay],
+        n: max,
+        pct: ((max / this.memos.length) * 100).toFixed(1),
+      }),
+    });
   }
 
   // -------- 高亮记录 --------

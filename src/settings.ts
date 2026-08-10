@@ -243,6 +243,25 @@ export class MemoriaSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName(t("settings.contentWidth.name"))
+      .setDesc(t("settings.contentWidth.desc"))
+      .addDropdown((d) =>
+        d
+          .addOption("focused", t("settings.contentWidth.focused"))
+          .addOption("balanced", t("settings.contentWidth.balanced"))
+          .addOption("wide", t("settings.contentWidth.wide"))
+          .setValue(this.plugin.settings.contentWidth)
+          .onChange(async (v) => {
+            this.plugin.settings.contentWidth = v as
+              | "focused"
+              | "balanced"
+              | "wide";
+            await this.plugin.saveSettings();
+            this.plugin.store.notifyChange();
+          })
+      );
+
+    new Setting(containerEl)
       .setName(t("settings.vim.name"))
       .setDesc(t("settings.vim.desc"))
       .addToggle((tg) =>

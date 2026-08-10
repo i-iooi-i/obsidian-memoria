@@ -34,6 +34,17 @@
 }
 
 .memoria-root,
+.memoria-container,
+.memoria-stats-view,
+.memoria-year-view {
+  --memoria-radius-control: 6px;
+  --memoria-radius-card: 10px;
+  --memoria-radius-panel: 12px;
+  --memoria-radius-pill: 999px;
+  --memoria-feed-max-width: 980px;
+}
+
+.memoria-root,
 .memoria-container {
   height: 100%;
   display: flex;
@@ -99,7 +110,7 @@
 }
 .memoria-stat-label {
   font-size: 11px;
-  color: var(--text-faint);
+  color: var(--text-muted);
   margin-top: 4px;
   letter-spacing: 0.4px;
 }
@@ -260,7 +271,7 @@
 }
 .memoria-nav-count {
   font-size: 11px;
-  color: var(--text-faint);
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
 .memoria-tag-item .memoria-nav-icon {
@@ -325,7 +336,7 @@
   gap: 4px;
   background: var(--background-modifier-form-field);
   border: 1px solid var(--background-modifier-border);
-  border-radius: 999px;
+  border-radius: var(--memoria-radius-pill);
   padding: 0 8px 0 12px;
   transition: border-color 0.15s;
 }
@@ -335,7 +346,7 @@
 .memoria-search-icon {
   display: flex;
   align-items: center;
-  color: var(--text-faint);
+  color: var(--text-muted);
 }
 .memoria-search-icon .svg-icon {
   width: 14px;
@@ -363,9 +374,9 @@
   padding: 4px 8px;
   border: none;
   background: transparent;
-  /* v1.4.9: 颜色从 --text-muted 降到 --text-faint，整体界面更柔和、不突兀。
-   *   与打卡条靶心/视图切换、侧栏活跃度切换按钮同一色阶，全局视觉统一。 */
-  color: var(--text-faint);
+  /* Essential top-bar actions stay one step above decorative metadata so
+   * pale themes do not wash them out. */
+  color: var(--text-muted);
   cursor: pointer;
   border-radius: 4px;
   display: inline-flex;
@@ -403,7 +414,7 @@
   margin: 16px 24px 0;
   padding: 14px 16px 10px;
   border: 1px solid var(--background-modifier-border);
-  border-radius: 12px;
+  border-radius: var(--memoria-radius-panel);
   background: var(--background-primary);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -564,7 +575,11 @@
   outline: none;
 }
 .memoria-input::placeholder {
-  color: var(--text-faint);
+  color: color-mix(
+    in srgb,
+    var(--text-muted) 78%,
+    var(--interactive-accent)
+  );
 }
 .memoria-input.dragging {
   background: var(--background-modifier-hover);
@@ -590,7 +605,7 @@
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--memoria-radius-control);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -611,14 +626,14 @@
   color: var(--text-faint);
 }
 .memoria-root button.memoria-submit-btn {
-  width: 38px;
+  width: 48px;
   height: 32px;
   padding: 0;
   border: none;
   /* v1.4.2: 用主题 accent 色 + 对抗某些主题对 button 的全局背景覆盖 */
   background: var(--interactive-accent);
   color: var(--text-on-accent);
-  border-radius: 6px;
+  border-radius: var(--memoria-radius-control);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -649,7 +664,11 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 4px 14px;
-  color: var(--text-faint);
+  color: color-mix(
+    in srgb,
+    var(--text-muted) 78%,
+    var(--interactive-accent)
+  );
   font-size: 12px;
 }
 .memoria-root button.memoria-meta-btn {
@@ -659,7 +678,7 @@
   min-height: 30px;
   padding: 4px 12px;
   border: 1px solid var(--background-modifier-border);
-  border-radius: 999px;
+  border-radius: var(--memoria-radius-pill);
   background: var(--background-modifier-form-field);
   color: var(--text-muted);
   box-shadow: none;
@@ -685,7 +704,7 @@
   margin: -4px 4px 14px;
   padding: 10px;
   border: 1px solid var(--background-modifier-border);
-  border-radius: 10px;
+  border-radius: var(--memoria-radius-card);
   background: var(--background-primary-alt, var(--background-secondary));
 }
 
@@ -740,7 +759,7 @@
   min-height: var(--input-height);
   padding: 0 8px 0 12px;
   border: 1px solid var(--background-modifier-border);
-  border-radius: 999px;
+  border-radius: var(--memoria-radius-pill);
   background: var(--background-modifier-form-field);
   transition: border-color 0.15s;
 }
@@ -761,7 +780,7 @@
   min-height: var(--input-height);
   padding: 6px 4px;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--memoria-radius-pill);
   background: transparent;
   color: var(--text-normal);
   box-shadow: none;
@@ -843,7 +862,7 @@
   );
   border: 1px dashed
     color-mix(in srgb, var(--interactive-accent) 40%, transparent);
-  border-radius: 10px;
+  border-radius: var(--memoria-radius-card);
 }
 .memoria-pin-head {
   display: flex;
@@ -875,7 +894,7 @@
   margin-bottom: 12px;
   background: var(--background-primary-alt, var(--background-secondary));
   border: 1px solid var(--background-modifier-border);
-  border-radius: 10px;
+  border-radius: var(--memoria-radius-card);
   transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 .memoria-card:hover {
@@ -920,7 +939,11 @@
 }
 .memoria-card-time {
   font-size: 12px;
-  color: var(--text-faint);
+  color: color-mix(
+    in srgb,
+    var(--text-muted) 80%,
+    var(--interactive-accent)
+  );
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.2px;
 }
@@ -1152,7 +1175,7 @@
   font-variant-numeric: tabular-nums;
   background: rgba(0, 0, 0, 0.5);
   padding: 4px 12px;
-  border-radius: 999px;
+  border-radius: var(--memoria-radius-pill);
 }
 .memoria-lightbox-close {
   position: fixed;
@@ -1217,7 +1240,7 @@
   padding: 2px 10px;
   background: var(--background-modifier-hover);
   color: var(--text-accent);
-  border-radius: 999px;
+  border-radius: var(--memoria-radius-pill);
   font-size: 11px;
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
@@ -1990,7 +2013,7 @@
   padding: 22px 10px;
   background: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
-  border-radius: 12px;
+  border-radius: var(--memoria-radius-panel);
   text-align: center;
   transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
 }
@@ -2161,9 +2184,20 @@
 .memoria-stats-view .mstat-bar-chart {
   display: flex;
   align-items: stretch;
-  gap: 6px;
-  height: 180px;
-  padding: 0 2px;
+  gap: 10px;
+  height: 168px;
+  padding: 8px 6px 0;
+  position: relative;
+}
+.memoria-stats-view .mstat-bar-chart::before {
+  content: "";
+  position: absolute;
+  right: 6px;
+  bottom: 32px;
+  left: 6px;
+  height: 1px;
+  background: var(--background-modifier-border);
+  pointer-events: none;
 }
 .memoria-stats-view .mstat-bar-col {
   flex: 1;
@@ -2172,6 +2206,9 @@
   align-items: center;
   gap: 2px;
   height: 100%;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
 }
 .memoria-stats-view .mstat-bar-wrap {
   flex: 1;
@@ -2182,29 +2219,31 @@
   min-height: 1px;
 }
 .memoria-stats-view .mstat-bar {
-  width: 100%;
+  width: clamp(16px, 42%, 34px);
   background: linear-gradient(
     180deg,
-    var(--interactive-accent),
-    color-mix(in srgb, var(--interactive-accent) 60%, transparent)
+    color-mix(in srgb, var(--interactive-accent) 92%, var(--text-normal)),
+    color-mix(in srgb, var(--interactive-accent) 62%, transparent)
   );
-  opacity: 0.85;
-  border-radius: 3px 3px 0 0;
+  opacity: 0.72;
+  border-radius: 6px 6px 2px 2px;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--background-primary) 26%, transparent);
   min-height: 2px;
-  transition: opacity 0.15s, transform 0.15s;
+  transition: opacity 0.15s, filter 0.15s;
 }
 .memoria-stats-view .mstat-bar.is-max {
   opacity: 1;
 }
 .memoria-stats-view .mstat-bar-col:hover .mstat-bar {
-  opacity: 1;
-  filter: brightness(1.1);
+  opacity: 0.96;
+  filter: brightness(1.06);
 }
 .memoria-stats-view .mstat-bar-num {
   font-size: 11px;
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
-  height: 13px;
+  height: 14px;
+  line-height: 14px;
 }
 /* v1.1.5: 0 条月份的数字再弱化一档，保留节奏但不抢视觉 */
 .memoria-stats-view .mstat-bar-num.is-dim {
@@ -2213,9 +2252,174 @@
 .memoria-stats-view .mstat-bar-label {
   font-size: 11px;
   color: var(--text-faint);
+  height: 14px;
+  line-height: 14px;
 }
 .memoria-stats-view .mstat-bar-chart-hour .mstat-bar-label {
   font-size: 10px;
+}
+
+/* 写作节律：有序小时数据用细线表达，星期分布用面积诚实编码的圆点。 */
+.memoria-stats-view .mstat-rhythm-grid {
+  display: block;
+}
+.memoria-stats-view .mstat-rhythm-panel {
+  min-width: 0;
+}
+.memoria-stats-view .mstat-rhythm-week {
+  margin-top: 32px;
+  padding-top: 28px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+.memoria-stats-view .mstat-rhythm-heading {
+  min-height: 20px;
+  margin-bottom: 12px;
+  color: var(--text-normal);
+  font-size: 13px;
+  font-weight: 600;
+}
+.memoria-stats-view .mstat-rhythm-scroll {
+  width: 100%;
+  overflow-x: visible;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+.memoria-stats-view .mstat-rhythm-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin-bottom: 16px;
+}
+.memoria-stats-view .mstat-rhythm-metric {
+  min-width: 116px;
+  padding: 0 28px;
+  border-left: 1px solid var(--background-modifier-border);
+}
+.memoria-stats-view .mstat-rhythm-metric:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+.memoria-stats-view .mstat-rhythm-metric-value {
+  color: var(--text-normal);
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.memoria-stats-view .mstat-rhythm-metric-label {
+  margin-top: 3px;
+  color: var(--text-faint);
+  font-size: 10px;
+}
+.memoria-stats-view .mstat-rhythm-chart-shell {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  width: 100%;
+  min-width: 0;
+}
+.memoria-stats-view .mstat-rhythm-y-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 3px 10px 31px 0;
+  color: var(--text-faint);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.memoria-stats-view .mstat-rhythm-plot {
+  min-width: 0;
+}
+.memoria-stats-view .mstat-rhythm-svg {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 168px;
+}
+.memoria-stats-view .mstat-rhythm-gridline {
+  stroke: var(--background-modifier-border);
+  stroke-width: 1;
+  stroke-dasharray: 2 6;
+}
+.memoria-stats-view .mstat-rhythm-area {
+  fill: color-mix(in srgb, var(--interactive-accent) 13%, transparent);
+}
+.memoria-stats-view .mstat-rhythm-line {
+  fill: none;
+  stroke: color-mix(in srgb, var(--interactive-accent) 82%, var(--text-normal));
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.memoria-stats-view .mstat-rhythm-point {
+  fill: var(--background-primary);
+  stroke: var(--interactive-accent);
+  stroke-width: 1.5;
+}
+.memoria-stats-view .mstat-rhythm-point.is-empty {
+  opacity: 0.35;
+}
+.memoria-stats-view .mstat-rhythm-point.is-peak {
+  fill: var(--interactive-accent);
+  stroke: var(--background-primary);
+  stroke-width: 2;
+}
+.memoria-stats-view .mstat-rhythm-x-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  color: var(--text-faint);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.memoria-stats-view .mstat-rhythm-axis-caption {
+  margin-top: 6px;
+  color: var(--text-faint);
+  font-size: 10px;
+  text-align: center;
+}
+.memoria-stats-view .mstat-weekday-dots {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(54px, 1fr));
+  gap: 14px 12px;
+  min-height: 112px;
+  align-content: center;
+}
+.memoria-stats-view .mstat-weekday-item {
+  display: grid;
+  grid-template-rows: 48px auto auto;
+  justify-items: center;
+  align-items: center;
+}
+.memoria-stats-view .mstat-weekday-dot-wrap {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.memoria-stats-view .mstat-weekday-dot {
+  display: block;
+  border-radius: var(--memoria-radius-pill);
+  background: color-mix(in srgb, var(--interactive-accent) 82%, var(--text-normal));
+  transition: transform 0.15s, opacity 0.15s;
+}
+.memoria-stats-view .mstat-weekday-item:hover .mstat-weekday-dot {
+  transform: scale(1.08);
+}
+.memoria-stats-view .mstat-weekday-dot.is-peak {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive-accent) 16%, transparent);
+}
+.memoria-stats-view .mstat-weekday-label,
+.memoria-stats-view .mstat-weekday-count {
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.memoria-stats-view .mstat-weekday-label {
+  color: var(--text-muted);
+}
+.memoria-stats-view .mstat-weekday-count {
+  color: var(--text-faint);
 }
 
 /* 标签云 */
@@ -2447,9 +2651,24 @@
   .memoria-stats-view .mstat-bar-chart {
     height: 140px;
   }
-  /* 24 小时柱图的两位数字 label 太挤，改成 45° 旋转省空间（如需保水平可注释掉） */
-  .memoria-stats-view .mstat-bar-chart-hour .mstat-bar-label {
-    font-size: 9px;
+  .memoria-stats-view .mstat-rhythm-week {
+    margin-top: 24px;
+    padding-top: 24px;
+  }
+  .memoria-stats-view .mstat-rhythm-metric {
+    flex: 1 1 90px;
+    min-width: 90px;
+    padding: 0 16px;
+  }
+  .memoria-stats-view .mstat-rhythm-scroll {
+    overflow-x: auto;
+  }
+  .memoria-stats-view .mstat-rhythm-chart-shell {
+    min-width: 680px;
+  }
+  .memoria-stats-view .mstat-weekday-dots {
+    grid-template-columns: repeat(4, minmax(48px, 1fr));
+    min-height: 0;
   }
   /* 有趣发现卡片：padding 收紧 */
   .memoria-stats-view .mstat-fact {
@@ -3401,7 +3620,7 @@
   align-items: center;
   gap: 2px;
   border: 1px solid var(--background-modifier-border);
-  border-radius: 999px;
+  border-radius: var(--memoria-radius-pill);
   padding: 3px;
   background: var(--background-secondary);
 }
@@ -3425,7 +3644,7 @@
 }
 .memoria-year-view button.memoria-year-today-btn {
   padding: 4px 14px;
-  border-radius: 999px;
+  border-radius: var(--memoria-radius-pill);
   font-size: 13px;
   color: var(--text-muted);
 }
@@ -3453,7 +3672,7 @@
 .memoria-year-month {
   background: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
-  border-radius: 12px;
+  border-radius: var(--memoria-radius-panel);
   padding: 18px 16px 14px;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
@@ -4012,11 +4231,15 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* 进度条：极薄 + 无背景框 + 进度条本身降饱和度 */
+/* 进度条：沿用当前 Obsidian 主题色，保留轻巧而不发灰。 */
 .memoria-buddy-stat-bar {
   display: block;
   height: 4px;
-  background: var(--background-modifier-border);
+  background: color-mix(
+    in srgb,
+    var(--interactive-accent) 12%,
+    var(--background-modifier-border)
+  );
   border-radius: 2px;
   overflow: hidden;
   position: relative;
@@ -4026,16 +4249,12 @@
   display: block;
   height: 100%;
   border-radius: 2px;
-  background: var(--text-muted);
-  opacity: 0.6;
-}
-.memoria-buddy-common    .memoria-buddy-stat-fill { background: #a8a4a0; }
-.memoria-buddy-uncommon  .memoria-buddy-stat-fill { background: #82c590; }
-.memoria-buddy-rare      .memoria-buddy-stat-fill { background: #82b4d8; }
-.memoria-buddy-epic      .memoria-buddy-stat-fill { background: #c598e0; }
-.memoria-buddy-legendary .memoria-buddy-stat-fill {
-  background: #e8b64a;
-  opacity: 0.8;
+  background: color-mix(
+    in srgb,
+    var(--interactive-accent) 82%,
+    var(--text-normal)
+  );
+  opacity: 0.82;
 }
 
 /* ================================================================
@@ -4429,6 +4648,82 @@
 
 .mstat-yh-cell.is-outside-range {
   visibility: hidden;
+}
+
+/* ================== v2.4 design foundation preview ==================
+ * Keep the app bar full-width, while giving the capture and reading flow a
+ * shared measure on large displays. This only affects the main timeline;
+ * reports and the year panorama retain their existing compositions.
+ */
+@media (min-width: 1100px) and (hover: hover) and (pointer: fine) {
+  .memoria-input-card {
+    width: calc(100% - 48px);
+    max-width: var(--memoria-feed-max-width);
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+  }
+
+  .memoria-list > * {
+    max-width: var(--memoria-feed-max-width);
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+  }
+}
+
+/* One visible keyboard-focus contract across the native-looking controls. */
+.memoria-root button:focus-visible,
+.memoria-root button.memoria-collapse-toggle:focus-visible,
+.memoria-root .memoria-review-select:focus-visible,
+.memoria-stats-view button:focus-visible,
+.memoria-year-view button:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
+}
+
+/* Preserve the authored motion by default, but respect the OS accessibility
+ * preference for users who need a steadier interface. */
+@media (prefers-reduced-motion: reduce) {
+  .memoria-root .memoria-sidebar,
+  .memoria-root .memoria-input-card,
+  .memoria-root textarea.memoria-input,
+  .memoria-root .memoria-input-toolbar,
+  .memoria-root button.memoria-submit-btn,
+  .memoria-root .memoria-card,
+  .memoria-root .memoria-card-actions,
+  .memoria-root .memoria-tag-pill,
+  .memoria-root button.memoria-collapse-toggle,
+  .memoria-root.memoria-input-fab-mode .memoria-fab,
+  .memoria-root.memoria-input-fab-mode .memoria-input-card,
+  .memoria-root.memoria-input-fab-mode:not(.is-fab-expanded) .memoria-input-card,
+  .memoria-root.memoria-input-fab-mode.is-fab-expanded .memoria-input-card,
+  .memoria-root .memoria-input-close,
+  .memoria-stats-view .mstat-bignum,
+  .memoria-stats-view .mstat-bar,
+  .memoria-stats-view .mstat-cloud-tag,
+  .memoria-stats-view .mstat-hbar,
+  .memoria-stats-view .mstat-weekday-dot,
+  .memoria-stats-view .mstat-fact,
+  .memoria-year-view .memoria-year-month,
+  .memoria-year-view .memoria-year-day,
+  .memoria-year-view button.memoria-year-nav-btn,
+  .memoria-year-view button.memoria-year-today-btn {
+    transition-duration: 0.01ms;
+    transition-delay: 0ms;
+  }
+
+  .memoria-root button.memoria-icon-btn.is-spinning .svg-icon,
+  .memoria-root .memoria-heatmap-tooltip,
+  .memoria-root .memoria-buddy-shiny-tag,
+  .memoria-root .memoria-buddy-legendary .memoria-buddy-sprite,
+  .memoria-root .memoria-buddy-aura-top,
+  .memoria-root .memoria-buddy-aura-bottom,
+  .memoria-root .memoria-buddy.is-just-hatched,
+  .memoria-root .memoria-buddy-egg .memoria-buddy-sprite,
+  .memoria-root .memoria-buddy-egg-input.is-error {
+    animation: none;
+  }
 }
 
 /* ================== Button theme contract ==================

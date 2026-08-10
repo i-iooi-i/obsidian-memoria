@@ -516,6 +516,7 @@ export class MemoriaView extends ItemView {
 
     // 初次同步 root 模式 class
     this.syncFabMode();
+    this.syncContentWidth();
   }
 
   /** v2.2.0: 根据 settings.mobileInputStyle 同步 root 上的 .memoria-input-fab-mode 类。
@@ -551,6 +552,17 @@ export class MemoriaView extends ItemView {
         }
       });
     });
+  }
+
+  /** 桌面端共享阅读宽度；设置变更时只更新 CSS 变量，不重建界面。 */
+  private syncContentWidth(): void {
+    const widths = {
+      focused: "760px",
+      balanced: "980px",
+      wide: "1200px",
+    } as const;
+    const width = widths[this.settings.contentWidth] ?? widths.balanced;
+    this.contentEl.style.setProperty("--memoria-feed-max-width", width);
   }
 
   /** Open the same capture surface used by the mobile FAB.
@@ -1848,6 +1860,7 @@ export class MemoriaView extends ItemView {
     // v2.2.0: 每次 renderAll 同步一次 root 的 fab-mode class，
     //   让用户在设置页切换 mobileInputStyle 后立即生效（store.notifyChange 会触发 renderAll）
     this.syncFabMode();
+    this.syncContentWidth();
     this.renderSidebar();
     this.renderList();
   }
