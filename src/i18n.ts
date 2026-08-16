@@ -142,6 +142,13 @@ const zhCN: Dict = {
   "stats.monthlyYearSum": "{year} 年共 {n} 条",
   "stats.monthShort": "{m}月",
   "stats.monthlyBarTip": "{m} 月 · {n} 条",
+  "stats.drilldown.close": "关闭数据明细",
+  "stats.drilldown.openMemo": "查看 {date} {time} 的笔记",
+  "stats.drilldown.emptyMemo": "（无文字内容）",
+  "stats.drilldown.more": "另有 {n} 条未显示",
+  "stats.drilldown.day": "{date} · {n} 条笔记",
+  "stats.drilldown.month": "{month} · {n} 条笔记",
+  "stats.drilldown.hour": "{start}:00–{end}:00 · {n} 条笔记",
   "stats.highlightsENOnly": "英文版的「有趣发现」文案还在准备中～目前中文文案更丰富，切回简体中文可以看到完整的随机文案池。",
 
   // 年度全景
@@ -699,6 +706,13 @@ const enUS: Dict = {
   "stats.monthlyYearSum": "{year} · {n} memos",
   "stats.monthShort": "{m}",
   "stats.monthlyBarTip": "Month {m} · {n} memos",
+  "stats.drilldown.close": "Close details",
+  "stats.drilldown.openMemo": "Open memo from {date} {time}",
+  "stats.drilldown.emptyMemo": "(No text content)",
+  "stats.drilldown.more": "{n} more not shown",
+  "stats.drilldown.day": "{date} · {n} memos",
+  "stats.drilldown.month": "{month} · {n} memos",
+  "stats.drilldown.hour": "{start}:00–{end}:00 · {n} memos",
   "stats.highlightsENOnly": "Insights text is only available in Chinese for now — switch to 简体中文 to see the full pool of playful findings.",
 
   // Year panorama

@@ -53,7 +53,7 @@ $ErrorActionPreference = 'Stop'
 # v2.2.0: 路径从 C:\Users\zololiu\Desktop\ 迁移到 E:\Obsidian 插件开发\
 $ReleaseDir = 'E:\Obsidian 插件开发\memoria-release'
 $SourceDir  = 'E:\Obsidian 插件开发\memoria-source'
-$VaultDir   = 'D:\Nextcloud\Note\Ob_Life\.obsidian\plugins\memoria'
+$VaultDir   = 'D:\NAS\Notes\Ob_Life\.obsidian\plugins\memoria'
 $GitHubOwner = 'i-iooi-i'
 $GitHubRepo  = 'obsidian-memoria'
 
@@ -171,6 +171,7 @@ $manifestRaw = Get-Content $manifestPath -Encoding UTF8 -Raw
 $manifest = $manifestRaw | ConvertFrom-Json
 $version = $manifest.version
 $tag = $version
+$isPrerelease = $version -match '-(?:alpha|beta|rc)(?:\.|$)'
 Write-Info ("版本号：" + $version + "  ->  tag: " + $tag) 'Green'
 
 # ============ Step 5. Git commit + tag + push ============
@@ -280,7 +281,7 @@ if ($existing) {
     name       = "Memoria " + $tag
     body       = $body
     draft      = $false
-    prerelease = $false
+    prerelease = $isPrerelease
   } | ConvertTo-Json -Depth 10
   if ($DryRun) {
     Write-Info "[DRY] POST /releases" 'DarkGray'

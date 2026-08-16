@@ -2100,6 +2100,32 @@
   background: var(--background-modifier-hover);
   color: var(--text-normal);
 }
+.memoria-stats-view .mstat-year-summary {
+  display: flex;
+  align-items: stretch;
+  margin: 2px 0 20px;
+}
+.memoria-stats-view .mstat-year-metric {
+  min-width: 112px;
+  padding: 0 24px;
+  border-left: 1px solid var(--background-modifier-border);
+}
+.memoria-stats-view .mstat-year-metric:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+.memoria-stats-view .mstat-year-metric-value {
+  color: var(--text-normal);
+  font-size: 20px;
+  font-weight: 650;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+.memoria-stats-view .mstat-year-metric-label {
+  margin-top: 4px;
+  color: var(--text-faint);
+  font-size: 11px;
+}
 .memoria-stats-view .mstat-yh-wrap {
   display: flex;
   gap: 3px;
@@ -2136,6 +2162,22 @@
 }
 .memoria-stats-view .mstat-yh-cell.level-4 {
   background: var(--interactive-accent);
+  opacity: 1;
+}
+.memoria-stats-view .mstat-yh-cell.is-clickable {
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, opacity 0.15s ease;
+}
+.memoria-stats-view .mstat-yh-cell.is-clickable:hover,
+.memoria-stats-view .mstat-yh-cell.is-clickable:focus-visible {
+  box-shadow: 0 0 0 2px var(--background-primary),
+    0 0 0 3px color-mix(in srgb, var(--interactive-accent) 72%, transparent);
+  opacity: 1;
+  outline: none;
+}
+.memoria-stats-view .mstat-yh-cell.is-selected {
+  box-shadow: 0 0 0 2px var(--background-primary),
+    0 0 0 4px var(--interactive-accent);
   opacity: 1;
 }
 .memoria-stats-view .mstat-yh-monthlabels {
@@ -2209,6 +2251,19 @@
   min-width: 0;
   position: relative;
   z-index: 1;
+}
+.memoria-stats-view .mstat-bar-col.is-clickable {
+  cursor: pointer;
+  border-radius: var(--radius-s);
+  outline: none;
+}
+.memoria-stats-view .mstat-bar-col.is-clickable:focus-visible {
+  box-shadow: 0 0 0 2px var(--interactive-accent);
+}
+.memoria-stats-view .mstat-bar-col.is-selected .mstat-bar {
+  opacity: 1;
+  filter: brightness(1.08);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 32%, transparent);
 }
 .memoria-stats-view .mstat-bar-wrap {
   flex: 1;
@@ -2364,6 +2419,21 @@
   stroke: var(--background-primary);
   stroke-width: 2;
 }
+.memoria-stats-view .mstat-rhythm-point-group.is-clickable {
+  cursor: pointer;
+  outline: none;
+}
+.memoria-stats-view .mstat-rhythm-hit-target {
+  fill: transparent;
+  pointer-events: all;
+}
+.memoria-stats-view .mstat-rhythm-point-group.is-clickable:hover .mstat-rhythm-point,
+.memoria-stats-view .mstat-rhythm-point-group.is-clickable:focus-visible .mstat-rhythm-point,
+.memoria-stats-view .mstat-rhythm-point-group.is-selected .mstat-rhythm-point {
+  fill: var(--interactive-accent);
+  stroke: var(--background-primary);
+  stroke-width: 3;
+}
 .memoria-stats-view .mstat-rhythm-x-axis {
   display: flex;
   justify-content: space-between;
@@ -2377,6 +2447,98 @@
   color: var(--text-faint);
   font-size: 10px;
   text-align: center;
+}
+
+/* 图表只读下钻：保持为轻量信息带，不与报告区块争抢层级。 */
+.memoria-stats-view .mstat-drilldown {
+  display: none;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+.memoria-stats-view .mstat-drilldown.is-visible {
+  display: block;
+}
+.memoria-stats-view .mstat-drilldown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 28px;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.memoria-stats-view .mstat-drilldown-title {
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.memoria-stats-view button.mstat-drilldown-close {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 5px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+.memoria-stats-view button.mstat-drilldown-close:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+.memoria-stats-view .mstat-drilldown-list {
+  display: grid;
+  gap: 2px;
+}
+.memoria-stats-view button.mstat-drilldown-item {
+  display: grid;
+  grid-template-columns: 142px minmax(0, 1fr) 18px;
+  align-items: center;
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 9px;
+  color: var(--text-normal);
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-s);
+  box-shadow: none;
+}
+.memoria-stats-view button.mstat-drilldown-item:hover {
+  background: var(--background-modifier-hover);
+}
+.memoria-stats-view button.mstat-drilldown-item:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: -2px;
+}
+.memoria-stats-view .mstat-drilldown-meta {
+  display: flex;
+  gap: 8px;
+  color: var(--text-faint);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.memoria-stats-view .mstat-drilldown-text {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.memoria-stats-view .mstat-drilldown-open {
+  display: inline-flex;
+  width: 14px;
+  height: 14px;
+  color: var(--text-faint);
+}
+.memoria-stats-view .mstat-drilldown-more {
+  padding: 6px 9px 0;
+  color: var(--text-faint);
+  font-size: 10px;
 }
 .memoria-stats-view .mstat-weekday-dots {
   display: grid;
@@ -2622,6 +2784,18 @@
   .memoria-stats-view .mstat-bignum-num {
     font-size: 28px;
   }
+  .memoria-stats-view .mstat-year-summary {
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .memoria-stats-view .mstat-year-metric {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0 12px;
+  }
+  .memoria-stats-view .mstat-year-metric-value {
+    font-size: 18px;
+  }
   /* Top 10 标签奖牌行：奖牌 + 标签 + 进度条 + 数字 四列 */
   .memoria-stats-view .mstat-hbar-row {
     grid-template-columns: 22px 110px 1fr 30px;
@@ -2665,6 +2839,18 @@
   }
   .memoria-stats-view .mstat-rhythm-chart-shell {
     min-width: 680px;
+  }
+  .memoria-stats-view button.mstat-drilldown-item {
+    grid-template-columns: minmax(0, 1fr) 18px;
+    row-gap: 2px;
+  }
+  .memoria-stats-view .mstat-drilldown-meta,
+  .memoria-stats-view .mstat-drilldown-text {
+    grid-column: 1;
+  }
+  .memoria-stats-view .mstat-drilldown-open {
+    grid-column: 2;
+    grid-row: 1 / 3;
   }
   .memoria-stats-view .mstat-weekday-dots {
     grid-template-columns: repeat(4, minmax(48px, 1fr));
@@ -4808,4 +4994,92 @@
   height: 1px;
   opacity: 0;
   pointer-events: none;
+}
+
+/* ================== Style Context background compatibility ==================
+ * Style Context adds this body class while its background layer is active.
+ * Match Obsidian's transparent workspace while retaining borders, controls,
+ * and floating interaction surfaces for legibility.
+ */
+body.sc-style-context-background-image .memoria-root {
+  --background-modifier-form-field: transparent;
+  --background-modifier-form-field-highlighted: transparent;
+  --dropdown-background: transparent;
+  --input-shadow: none;
+  --input-shadow-hover: none;
+}
+
+body.sc-style-context-background-image
+  .workspace-leaf-content[data-type="memoria-view"]
+  .view-content,
+body.sc-style-context-background-image
+  .workspace-leaf-content[data-type="memoria-stats-view"]
+  .view-content,
+body.sc-style-context-background-image
+  .workspace-leaf-content[data-type="memoria-year-view"]
+  .view-content {
+  background: transparent;
+}
+
+body.sc-style-context-background-image .memoria-sidebar,
+body.sc-style-context-background-image .memoria-topbar,
+body.sc-style-context-background-image .memoria-input-card,
+body.sc-style-context-background-image
+  .memoria-root.memoria-input-fab-mode.is-fab-expanded
+  .memoria-input-card,
+body.sc-style-context-background-image .memoria-card,
+body.sc-style-context-background-image
+  .memoria-pin-group
+  .memoria-card.is-pinned,
+body.sc-style-context-background-image .memoria-review-toolbar,
+body.sc-style-context-background-image .memoria-pin-group,
+body.sc-style-context-background-image .memoria-stats-view .mstat-bignum,
+body.sc-style-context-background-image .memoria-stats-view .mstat-cloud,
+body.sc-style-context-background-image .memoria-stats-view .mstat-fact,
+body.sc-style-context-background-image .memoria-year-nav,
+body.sc-style-context-background-image .memoria-year-month {
+  background: transparent;
+}
+
+body.sc-style-context-background-image
+  .memoria-root
+  .memoria-topbar
+  .memoria-search-wrap,
+body.sc-style-context-background-image
+  .memoria-root
+  .memoria-review-toolbar
+  .memoria-review-search-wrap,
+body.sc-style-context-background-image
+  .memoria-root
+  .memoria-review-toolbar
+  select.memoria-review-select,
+body.sc-style-context-background-image
+  .memoria-root
+  .memoria-review-toolbar
+  select.memoria-review-select:hover,
+body.sc-style-context-background-image
+  .memoria-root
+  .memoria-review-toolbar
+  select.memoria-review-select:focus,
+body.sc-style-context-background-image
+  .memoria-root
+  .memoria-review-toolbar
+  select.memoria-review-select:active {
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+}
+
+body.sc-style-context-background-image
+  .memoria-card-body.is-collapsed::after,
+body.sc-style-context-background-image
+  .memoria-list.is-compact
+  .memoria-card-body::after {
+  background: transparent;
+}
+
+body.sc-style-context-background-image
+  .memoria-card.is-pinned
+  .memoria-card-body.is-collapsed::after {
+  background: transparent;
 }

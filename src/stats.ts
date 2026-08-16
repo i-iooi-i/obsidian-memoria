@@ -1,9 +1,15 @@
 // ================= 统计报告（作为 Obsidian 标签页打开） =================
 
 import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
-import { Memo, RESERVED_TAGS, VIEW_TYPE_MEMORIA_STATS } from "./types";
+import {
+  Memo,
+  RESERVED_TAGS,
+  VIEW_TYPE_MEMORIA,
+  VIEW_TYPE_MEMORIA_STATS,
+} from "./types";
 import type { MemoStore } from "./store";
 import { t, getCurrentLocale } from "./i18n";
+import { MemoriaView } from "./view";
 
 export class StatsView extends ItemView {
   private memos: Memo[] = [];
@@ -90,10 +96,7 @@ export class StatsView extends ItemView {
     const section = parent.createDiv({ cls: "mstat-section" });
     const row = section.createDiv({ cls: "mstat-overview" });
 
-    const totalWords = this.memos.reduce(
-      (s, m) => s + m.content.replace(/\s/g, "").length,
-      0
-    );
+    const totalWords = this.countWords(this.memos);
     const days = new Set(this.memos.map((m) => m.date)).size;
     const firstDay = [...this.memos].sort(
       (a, b) => a.datetime.getTime() - b.datetime.getTime()
@@ -107,6 +110,105 @@ export class StatsView extends ItemView {
     this.renderBigNum(row, totalWords, t("stats.label.words"));
     this.renderBigNum(row, days, t("stats.label.activeDays"));
     this.renderBigNum(row, spanDays, t("stats.label.spanDays"));
+  }
+
+  private countWords(memos: Memo[]): number {
+    return memos.reduce(
+      (sum, memo) => sum + memo.content.replace(/\s/g, "").length,
+      0
+    );
+  }
+
+  private bindActivation(
+    element: HTMLElement | SVGElement,
+    activate: () => void
+  ): void {
+    element.setAttribute("role", "button");
+    element.setAttribute("tabindex", "0");
+    element.addEventListener("click", activate);
+    element.addEventListener("keydown", (event) => {
+      if (!(event instanceof KeyboardEvent)) return;
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      activate();
+    });
+  }
+
+  private clearDrilldown(container: HTMLElement): void {
+    container.empty();
+    container.removeClass("is-visible");
+  }
+
+  private renderDrilldown(
+    container: HTMLElement,
+    title: string,
+    memos: Memo[],
+    onClose: () => void
+  ): void {
+    container.empty();
+    container.addClass("is-visible");
+
+    const header = container.createDiv({ cls: "mstat-drilldown-header" });
+    header.createDiv({ cls: "mstat-drilldown-title", text: title });
+    const close = header.createEl("button", {
+      cls: "mstat-drilldown-close",
+      attr: {
+        "aria-label": t("stats.drilldown.close"),
+        title: t("stats.drilldown.close"),
+      },
+    });
+    setIcon(close, "x");
+    close.addEventListener("click", onClose);
+
+    const list = container.createDiv({ cls: "mstat-drilldown-list" });
+    const sorted = [...memos].sort(
+      (a, b) => b.datetime.getTime() - a.datetime.getTime()
+    );
+    for (const memo of sorted.slice(0, 6)) {
+      const item = list.createEl("button", {
+        cls: "mstat-drilldown-item",
+        attr: {
+          "aria-label": t("stats.drilldown.openMemo", {
+            date: memo.date,
+            time: memo.time,
+          }),
+        },
+      });
+      const meta = item.createSpan({ cls: "mstat-drilldown-meta" });
+      meta.createSpan({ text: memo.date });
+      meta.createSpan({ text: memo.time });
+      const content = memo.content.replace(/\s+/g, " ").trim();
+      item.createSpan({
+        cls: "mstat-drilldown-text",
+        text:
+          content.length > 120
+            ? `${content.slice(0, 120).trimEnd()}…`
+            : content || t("stats.drilldown.emptyMemo"),
+      });
+      const openIcon = item.createSpan({ cls: "mstat-drilldown-open" });
+      setIcon(openIcon, "arrow-up-right");
+      item.addEventListener("click", () => {
+        void this.jumpToDate(memo.date);
+      });
+    }
+
+    if (sorted.length > 6) {
+      container.createDiv({
+        cls: "mstat-drilldown-more",
+        text: t("stats.drilldown.more", { n: sorted.length - 6 }),
+      });
+    }
+  }
+
+  private async jumpToDate(date: string): Promise<void> {
+    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_MEMORIA);
+    let leaf = leaves[0];
+    if (!leaf) {
+      leaf = this.app.workspace.getLeaf("tab");
+      await leaf.setViewState({ type: VIEW_TYPE_MEMORIA, active: true });
+    }
+    await this.app.workspace.revealLeaf(leaf);
+    if (leaf.view instanceof MemoriaView) leaf.view.focusOnDate(date);
   }
 
   private renderBigNum(parent: HTMLElement, num: number, label: string): void {
@@ -144,11 +246,31 @@ export class StatsView extends ItemView {
     let displayYear = new Date().getFullYear();
     yearBtn.setText(t("stats.yearBtn", { year: displayYear }));
 
+    const yearSummary = section.createDiv({ cls: "mstat-year-summary" });
+    yearSummary.setAttr("aria-live", "polite");
+    const createYearMetric = (label: string): HTMLElement => {
+      const metric = yearSummary.createDiv({ cls: "mstat-year-metric" });
+      const value = metric.createDiv({ cls: "mstat-year-metric-value" });
+      metric.createDiv({ cls: "mstat-year-metric-label", text: label });
+      return value;
+    };
+    const yearMemosValue = createYearMetric(t("stats.label.memos"));
+    const yearWordsValue = createYearMetric(t("stats.label.words"));
+    const yearActiveDaysValue = createYearMetric(t("stats.label.activeDays"));
+
     // v1.1.17: 年度热力图自身宽 ~800px，窄屏必然溢出。
     //   把 wrap + monthLabels 塞到同一个滚动容器里，保持两者列对齐，独立横滚。
     const yhScroll = section.createDiv({ cls: "mstat-yh-scroll" });
     const wrap = yhScroll.createDiv({ cls: "mstat-yh-wrap" });
     const monthLabels = yhScroll.createDiv({ cls: "mstat-yh-monthlabels" });
+    const heatmapDetail = section.createDiv({ cls: "mstat-drilldown" });
+    let selectedDay: string | null = null;
+
+    const clearHeatmapSelection = (): void => {
+      selectedDay = null;
+      wrap.querySelector(".mstat-yh-cell.is-selected")?.removeClass("is-selected");
+      this.clearDrilldown(heatmapDetail);
+    };
 
     // 月度柱状图占位（跟随年份一起渲染）
     const monthlyTitle = parent.createDiv({
@@ -164,12 +286,23 @@ export class StatsView extends ItemView {
     const render = (year: number): void => {
       wrap.empty();
       monthLabels.empty();
+      clearHeatmapSelection();
       yearBtn.setText(t("stats.yearBtn", { year }));
 
-      const dayMap = new Map<string, number>();
-      for (const m of this.memos) {
-        if (!m.date.startsWith(`${year}-`)) continue;
-        dayMap.set(m.date, (dayMap.get(m.date) ?? 0) + 1);
+      const yearMemos = this.memos.filter((memo) =>
+        memo.date.startsWith(`${year}-`)
+      );
+      yearMemosValue.setText(yearMemos.length.toLocaleString());
+      yearWordsValue.setText(this.countWords(yearMemos).toLocaleString());
+      yearActiveDaysValue.setText(
+        new Set(yearMemos.map((memo) => memo.date)).size.toLocaleString()
+      );
+
+      const dayMap = new Map<string, Memo[]>();
+      for (const m of yearMemos) {
+        const memosForDay = dayMap.get(m.date) ?? [];
+        memosForDay.push(m);
+        dayMap.set(m.date, memosForDay);
       }
 
       const start = new Date(year, 0, 1);
@@ -235,7 +368,8 @@ export class StatsView extends ItemView {
           day.setDate(gridStart.getDate() + w * 7 + d);
           const key = fmtDate(day);
           const inRange = day >= start && day <= end;
-          const count = dayMap.get(key) ?? 0;
+          const memosForDay = dayMap.get(key) ?? [];
+          const count = memosForDay.length;
           // v1.4.10: 未来的日子（当年今天之后）视觉上同 level-0，
           //   但 hover title 改成"未来"而不是"0 条"，避免误导
           const isFuture = inRange && day > todayDateOnly;
@@ -261,15 +395,38 @@ export class StatsView extends ItemView {
             },
           });
           if (level === -1) cell.addClass("is-outside-range");
+          if (count > 0) {
+            cell.addClass("is-clickable");
+            cell.setAttr(
+              "aria-label",
+              t("stats.drilldown.day", { date: key, n: count })
+            );
+            this.bindActivation(cell, () => {
+              if (selectedDay === key) {
+                clearHeatmapSelection();
+                return;
+              }
+              wrap
+                .querySelector(".mstat-yh-cell.is-selected")
+                ?.removeClass("is-selected");
+              selectedDay = key;
+              cell.addClass("is-selected");
+              this.renderDrilldown(
+                heatmapDetail,
+                t("stats.drilldown.day", { date: key, n: count }),
+                memosForDay,
+                clearHeatmapSelection
+              );
+            });
+          }
         }
       }
 
       // 月度柱状图：显示该年 1-12 月
       this.renderMonthlyForYear(monthlyChartWrap, year);
-      const yearTotal = this.memos.filter((m) =>
-        m.date.startsWith(`${year}-`)
-      ).length;
-      monthlySubtitle.setText(t("stats.monthlyYearSum", { year, n: yearTotal }));
+      monthlySubtitle.setText(
+        t("stats.monthlyYearSum", { year, n: yearMemos.length })
+      );
     };
 
     const switchYear = (delta: number): void => {
@@ -303,43 +460,75 @@ export class StatsView extends ItemView {
   private renderMonthlyForYear(parent: HTMLElement, year: number): void {
     parent.empty();
 
-    const months: { key: string; label: string; count: number }[] = [];
+    const months: { key: string; label: string; memos: Memo[] }[] = [];
     for (let i = 0; i < 12; i++) {
       months.push({
         key: `${year}-${pad(i + 1)}`,
         label: t("stats.monthShort", { m: i + 1 }),
-        count: 0,
+        memos: [],
       });
     }
     for (const m of this.memos) {
       if (!m.date.startsWith(`${year}-`)) continue;
       const mi = parseInt(m.date.substring(5, 7), 10) - 1;
-      months[mi].count++;
+      months[mi].memos.push(m);
     }
-    const max = Math.max(1, ...months.map((m) => m.count));
+    const max = Math.max(1, ...months.map((m) => m.memos.length));
 
     // v1.1.17: 月度 12 列柱图 ~354px 在窄屏也会溢出，给同款滚动容器
     const scrollWrap = parent.createDiv({ cls: "mstat-bar-chart-scroll" });
     const chart = scrollWrap.createDiv({ cls: "mstat-bar-chart" });
+    const detail = parent.createDiv({ cls: "mstat-drilldown" });
+    let selectedMonth: string | null = null;
+    const clearMonthSelection = (): void => {
+      selectedMonth = null;
+      chart.querySelector(".mstat-bar-col.is-selected")?.removeClass("is-selected");
+      this.clearDrilldown(detail);
+    };
     for (const mo of months) {
+      const count = mo.memos.length;
       const col = chart.createDiv({ cls: "mstat-bar-col" });
       const barWrap = col.createDiv({ cls: "mstat-bar-wrap" });
       const bar = barWrap.createDiv({
         cls:
           "mstat-bar" +
-          (mo.count === max && mo.count > 0 ? " is-max" : "") +
-          (mo.count === 0 ? " is-empty" : ""),
+          (count === max && count > 0 ? " is-max" : "") +
+          (count === 0 ? " is-empty" : ""),
       });
       // v1.1.5: 0 条月份也保留 2px 高的"空柱"，保持视觉连续性
       bar.style.height =
-        mo.count === 0 ? "2px" : `${(mo.count / max) * 100}%`;
-      bar.setAttr("title", t("stats.monthlyBarRange", { key: mo.key, n: mo.count }));
+        count === 0 ? "2px" : `${(count / max) * 100}%`;
+      bar.setAttr("title", t("stats.monthlyBarRange", { key: mo.key, n: count }));
       col.createDiv({
-        cls: "mstat-bar-num" + (mo.count === 0 ? " is-dim" : ""),
+        cls: "mstat-bar-num" + (count === 0 ? " is-dim" : ""),
         // v1.1.5: 0 也显示数字（弱化颜色），保持"每列都有数字"的节奏感
-        text: String(mo.count),
+        text: String(count),
       });
       col.createDiv({ cls: "mstat-bar-label", text: mo.label });
+      if (count > 0) {
+        col.addClass("is-clickable");
+        col.setAttr(
+          "aria-label",
+          t("stats.drilldown.month", { month: mo.key, n: count })
+        );
+        this.bindActivation(col, () => {
+          if (selectedMonth === mo.key) {
+            clearMonthSelection();
+            return;
+          }
+          chart
+            .querySelector(".mstat-bar-col.is-selected")
+            ?.removeClass("is-selected");
+          selectedMonth = mo.key;
+          col.addClass("is-selected");
+          this.renderDrilldown(
+            detail,
+            t("stats.drilldown.month", { month: mo.key, n: count }),
+            mo.memos,
+            clearMonthSelection
+          );
+        });
+      }
     }
   }
 
@@ -442,8 +631,9 @@ export class StatsView extends ItemView {
     const panel = parent.createDiv({ cls: "mstat-rhythm-panel mstat-rhythm-hour" });
     panel.createDiv({ cls: "mstat-rhythm-heading", text: t("stats.section.hourly") });
 
-    const buckets: number[] = Array.from({ length: 24 }, () => 0);
-    for (const m of this.memos) buckets[m.datetime.getHours()]++;
+    const memosByHour: Memo[][] = Array.from({ length: 24 }, () => []);
+    for (const m of this.memos) memosByHour[m.datetime.getHours()].push(m);
+    const buckets = memosByHour.map((memos) => memos.length);
     const max = Math.max(1, ...buckets);
     const peakHour = buckets.indexOf(max);
     const peakPct = ((max / this.memos.length) * 100).toFixed(1);
@@ -511,22 +701,64 @@ export class StatsView extends ItemView {
       attr: { d: linePath },
     });
 
+    const detail = panel.createDiv({ cls: "mstat-drilldown" });
+    let selectedHour: number | null = null;
+    const clearHourSelection = (): void => {
+      selectedHour = null;
+      svg
+        .querySelector(".mstat-rhythm-point-group.is-selected")
+        ?.classList.remove("is-selected");
+      this.clearDrilldown(detail);
+    };
+
     points.forEach(([x, y], hour) => {
-      svg.createSvg("circle", {
-        cls:
-          "mstat-rhythm-point" +
-          (hour === peakHour ? " is-peak" : "") +
-          (buckets[hour] === 0 ? " is-empty" : ""),
+      const pointGroup = svg.createSvg("g", {
+        cls: "mstat-rhythm-point-group",
         attr: {
-          cx: x,
-          cy: y,
-          r: hour === peakHour ? 4.5 : 2.5,
           "aria-label": t("stats.hourly.barTip", {
             hh: pad(hour),
             n: buckets[hour],
           }),
         },
       });
+      pointGroup.createSvg("circle", {
+        cls: "mstat-rhythm-hit-target",
+        attr: { cx: x, cy: y, r: 10 },
+      });
+      const point = pointGroup.createSvg("circle", {
+        cls: "mstat-rhythm-point",
+        attr: {
+          cx: x,
+          cy: y,
+          r: hour === peakHour ? 4.5 : 2.5,
+        },
+      });
+      if (hour === peakHour) point.addClass("is-peak");
+      if (buckets[hour] === 0) point.addClass("is-empty");
+      if (buckets[hour] > 0) {
+        pointGroup.addClass("is-clickable");
+        this.bindActivation(pointGroup, () => {
+          if (selectedHour === hour) {
+            clearHourSelection();
+            return;
+          }
+          svg
+            .querySelector(".mstat-rhythm-point-group.is-selected")
+            ?.classList.remove("is-selected");
+          selectedHour = hour;
+          pointGroup.addClass("is-selected");
+          this.renderDrilldown(
+            detail,
+            t("stats.drilldown.hour", {
+              start: pad(hour),
+              end: pad((hour + 1) % 24),
+              n: buckets[hour],
+            }),
+            memosByHour[hour],
+            clearHourSelection
+          );
+        });
+      }
     });
 
     const xAxis = plot.createDiv({ cls: "mstat-rhythm-x-axis" });
@@ -543,6 +775,7 @@ export class StatsView extends ItemView {
         pct: peakPct,
       })
     );
+    panel.appendChild(detail);
   }
 
   private renderWeekdayRhythm(parent: HTMLElement): void {
