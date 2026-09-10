@@ -961,6 +961,11 @@
   line-height: 1.7;
   color: var(--text-normal);
   word-break: break-word;
+  /* v2.4.2: 显式放开正文文本选择 —— Obsidian 对 app UI 全局禁用选择，
+   * 卡片正文继承 none 导致无法框选复制，只能双击进编辑模式。
+   * 显式恢复后仅作用于正文子树；标签胶囊/时间行/按钮各自保持 none，不受影响 */
+  user-select: text;
+  -webkit-user-select: text;
 }
 .memoria-card-body > *:first-child {
   margin-top: 0;

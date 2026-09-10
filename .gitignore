@@ -20,3 +20,4 @@ npm-debug.log*
 # 发布流水线的临时文件
 *.log
 .tmp/
+.codebuddy/

@@ -3096,6 +3096,20 @@ export class MemoriaView extends ItemView {
     return `${prefix}${t("list.totalCount", { n })}`;
   }
 
+  /** v2.4.2: 判断当前是否存在"位于指定卡片内"的非折叠文本选区。
+   *  双击/长按进编辑前先检测，让位于浏览器原生选词（正文已放开 user-select: text，
+   *  双击文字会自动产生选词选区），避免编辑框顶掉用户刚选中的文字。
+   *  锚点包含性检查（card.contains）可避免"别处残留选区时双击空白无法编辑"的误伤 */
+  private hasTextSelectionIn(card: HTMLElement): boolean {
+    const sel = activeDocument.getSelection();
+    return (
+      !!sel &&
+      sel.rangeCount > 0 &&
+      !sel.getRangeAt(0).collapsed &&
+      card.contains(sel.anchorNode)
+    );
+  }
+
   private renderMemoCard(parent: HTMLElement, memo: Memo): void {
     // v2.0.0: 如果开了情感色彩，给卡片加 mood class（卡片左边色条由 CSS 处理）
     let moodCls = "";
@@ -3112,11 +3126,17 @@ export class MemoriaView extends ItemView {
         moodCls,
     });
     // 双击卡片进入编辑模式
+    // v2.4.2: 正文已支持框选（user-select: text），双击文字会触发浏览器原生
+    //   "双击选词"产生选区 —— 此时优先尊重选区，不进编辑模式（否则选区会被
+    //   编辑框顶掉，用户想复制单词/短语时体验极差）。
+    //   双击空白区域（留白、段落间隙、卡片头部）无选区，仍走快速编辑路径。
     card.addEventListener("dblclick", (e) => {
       // 避免双击图片/链接时误触
       const target = e.target as HTMLElement;
       if (target.closest(".memoria-img-cell")) return;
       if (target.tagName === "A") return;
+      // 双击落在文字上 → 原生选词已产生选区，让位给选区
+      if (this.hasTextSelectionIn(card)) return;
       this.enterEditMode(memo);
     });
 
@@ -3147,6 +3167,9 @@ export class MemoriaView extends ItemView {
         startY = e.clientY;
         pressTimer = window.setTimeout(() => {
           pressTimer = null;
+          // v2.4.2: 长按时若系统原生"长按选词"已产生选区，优先尊重选区
+          //   （尽力而为 —— 原生气泡出现时机因平台而异，存在天然竞态）
+          if (this.hasTextSelectionIn(card)) return;
           this.enterEditMode(memo);
         }, 500);
       });
