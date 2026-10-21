@@ -6,6 +6,7 @@ import { App, TFile, normalizePath } from "obsidian";
 import { Memo, MemoriaSettings, PIN_TAG, STAR_TAG } from "./types";
 import {
   parseFile,
+  stripMemoTags,
   renderMemo,
   fmtDate,
   fmtTime,
@@ -96,7 +97,7 @@ export class MemoStore {
         state.pending = false;
         // 文件可能在排队期间被删了，重读前再取一次
         const current = this.app.vault.getAbstractFileByPath(key);
-        if (!(current instanceof TFile)) break;
+        if (!(current instanceof TFile) || !this.isInFolder(current)) break;
         const raw = await this.app.vault.read(current);
         const fresh = parseFile(current.path, raw);
         this.memos = this.memos.filter((m) => m.file !== current.path);
@@ -133,16 +134,12 @@ export class MemoStore {
   }
 
   private collectFiles(): TFile[] {
-    const folder = normalizePath(this.settings.folder);
-    return this.app.vault.getMarkdownFiles().filter((f) => {
-      const p = f.path;
-      // v1.1.9: 忽略以 `_` 开头的 md（约定为"非笔记"特殊文件，如 _trash.md）
-      if (f.name.startsWith("_")) return false;
-      return p === `${folder}/${f.name}` || p.startsWith(`${folder}/`);
-    });
+    return this.app.vault.getMarkdownFiles().filter((f) => this.isInFolder(f));
   }
 
   isInFolder(file: TFile): boolean {
+    // Attachments share the memo directory but must never be read as text.
+    if (file.extension.toLowerCase() !== "md") return false;
     const folder = normalizePath(this.settings.folder);
     // v1.1.9: _trash.md 等"_"前缀文件不算入正常笔记扫描范围
     if (file.name.startsWith("_")) return false;
@@ -186,58 +183,33 @@ export class MemoStore {
     if (f instanceof TFile) await this.reloadFile(f);
   }
 
-  /** 编辑一条 memo
-   *  v1.1.15: 写入前用最新文件内容重新 parse，按 (date, time) + 原 range 附近定位
-   *    真实行号；如果 memo 已不存在（被外部删了）或位置完全对不上，抛错让上层提示用户刷新，
-   *    避免用过期 range 盲写损坏相邻 memo。 */
+  /** Reparse before editing: timestamp, date and content must still match. */
   async editMemo(memo: Memo, newContent: string): Promise<void> {
     newContent = newContent.trim();
     if (!newContent) return;
     const file = this.app.vault.getAbstractFileByPath(memo.file) as TFile | null;
-    if (!file) return;
+    if (!file) throw new Error(t("error.originNotFound"));
     const raw = await this.app.vault.read(file);
     const lines = raw.split(/\r?\n/);
-
-    // 先尝试用原 range 直接确认：range 内首行应该还是 "- HH:MM"（容错两种格式）
-    const [s0, e0] = memo.range;
-    const memoHeadRe = new RegExp(`^-\\s+${memo.time}(?:\\s|$)`);
-    let s = s0;
-    let e = e0;
-    const headOk = s0 >= 0 && s0 < lines.length && memoHeadRe.test(lines[s0]);
-
-    if (!headOk) {
-      // 原 range 已失效（文件在编辑期间被外部改动）→ 重新 parse 定位
-      //
-      // v1.4.11: 修复"同分钟同内容多条笔记"会把编辑写错到同胞条上的 bug。
-      //   之前 fresh.find(m => 三项全等) 碰到两条完全相同的 memo（同时间 + 同内容）
-      //   只会匹配第一条。现在改为：
-      //     1. 先精确命中 date+time+content+原 range 起点
-      //     2. 退化到仅命中 date+time+content 的候选里挑 range[0] 最接近 s0 的
-      //     3. 都没命中才报错
-      const fresh = parseFile(file.path, raw);
-      const candidates = fresh.filter(
-        (m) =>
-          m.date === memo.date &&
-          m.time === memo.time &&
-          m.content === memo.content
-      );
-      if (candidates.length === 0) {
-        throw new Error(t("error.fileChanged"));
-      }
-      // 按 range[0] 到 s0 的距离升序，距离相同时取 range[0] 更小的（更靠前）
-      candidates.sort((a, b) => {
-        const da = Math.abs(a.range[0] - s0);
-        const db = Math.abs(b.range[0] - s0);
-        if (da !== db) return da - db;
-        return a.range[0] - b.range[0];
-      });
-      [s, e] = candidates[0].range;
-    }
+    const [s, e] = this.locateMemo(memo, raw).range;
 
     const rendered = renderMemo(memo.time, newContent).split("\n");
     lines.splice(s, e - s + 1, ...rendered);
     await this.app.vault.modify(file, lines.join("\n"));
     await this.reloadFile(file);
+  }
+
+  /** A matching timestamp alone is not enough when another same-minute note moved. */
+  private locateMemo(memo: Memo, raw: string): Memo {
+    const candidates = parseFile(memo.file, raw).filter((current) =>
+      current.date === memo.date && current.time === memo.time && current.content === memo.content
+    );
+    if (!candidates.length) throw new Error(t("error.fileChanged"));
+    candidates.sort((a, b) =>
+      Math.abs(a.range[0] - memo.range[0]) - Math.abs(b.range[0] - memo.range[0]) ||
+      a.range[0] - b.range[0]
+    );
+    return candidates[0];
   }
 
   /** v1.6.0: 修改一条已存在 memo 的时间（年/月/日/时/分），可同时修改正文。
@@ -252,8 +224,7 @@ export class MemoStore {
    *     5. 不写入回收站（这是搬移不是删除，避免污染 _trash.md）。
    *     6. 不做时间冲突检查 —— 同时间多条 memo 是合法状态（用户连发速记时常见）。
    *
-   *   定位策略与 editMemo 一致：先按原 range 起点，原 range 失效就 fallback 到
-   *   按 (date, time, content) 候选挑 range[0] 最近的那条。 */
+   *   定位策略与 editMemo 一致：重新解析并校验日期、时间及原内容。 */
   async editMemoDateTime(
     memo: Memo,
     newDateTime: Date,
@@ -292,32 +263,7 @@ export class MemoStore {
     const oldRaw = await this.app.vault.read(file);
     const oldLines = oldRaw.split(/\r?\n/);
 
-    const [s0, e0] = memo.range;
-    const memoHeadRe = new RegExp(`^-\\s+${memo.time}(?:\\s|$)`);
-    let s = s0;
-    let e = e0;
-    const headOk =
-      s0 >= 0 && s0 < oldLines.length && memoHeadRe.test(oldLines[s0]);
-
-    if (!headOk) {
-      const fresh = parseFile(file.path, oldRaw);
-      const candidates = fresh.filter(
-        (m) =>
-          m.date === memo.date &&
-          m.time === memo.time &&
-          m.content === memo.content
-      );
-      if (candidates.length === 0) {
-        throw new Error(t("error.fileChanged"));
-      }
-      candidates.sort((a, b) => {
-        const da = Math.abs(a.range[0] - s0);
-        const db = Math.abs(b.range[0] - s0);
-        if (da !== db) return da - db;
-        return a.range[0] - b.range[0];
-      });
-      [s, e] = candidates[0].range;
-    }
+    const [s, e] = this.locateMemo(memo, oldRaw).range;
 
     oldLines.splice(s, e - s + 1);
     this.removeOrphanDateHeaders(oldLines);
@@ -334,27 +280,25 @@ export class MemoStore {
         cleaned.push(ln);
       }
     }
-    await this.app.vault.modify(file, cleaned.join("\n"));
 
     // ---- Step 2: 把新内容插入到目标位置 ----
     const folder = normalizePath(this.settings.folder);
     await this.ensureFolder(folder);
     const newFilePath = `${folder}/${newYear}.md`;
 
-    // 如果是同一年（最常见情况），目标文件就是刚刚 modify 完的那个
+    // Same-file moves are assembled in memory and written once.
     const sameFile = newFilePath === file.path;
 
     if (sameFile) {
-      // 重新读一次（因为 Step 1 已经修改了），然后在新日期/时间位置插入
-      const refreshed = await this.app.vault.read(file);
       const next = this.insertMemoIntoYear(
-        refreshed,
+        cleaned.join("\n"),
         newYear,
         newDate,
         newWeekday,
         newTime,
         content
       );
+      if (await this.app.vault.read(file) !== oldRaw) throw new Error(t("error.fileChanged"));
       await this.app.vault.modify(file, next);
       await this.reloadFile(file);
     } else {
@@ -379,6 +323,10 @@ export class MemoStore {
         );
         await this.app.vault.modify(target, next);
       }
+      // Preserve the source until the destination is successfully written. If
+      // source cleanup fails, both copies remain instead of losing the note.
+      if (await this.app.vault.read(file) !== oldRaw) throw new Error(t("error.fileChanged"));
+      await this.app.vault.modify(file, cleaned.join("\n"));
       // 两个文件都要 reload（旧文件减少了一条，新文件多了一条）
       await this.reloadFile(file);
       const newFile = this.app.vault.getAbstractFileByPath(newFilePath) as
@@ -397,7 +345,9 @@ export class MemoStore {
    */
   async deleteMemo(memo: Memo): Promise<void> {
     const file = this.app.vault.getAbstractFileByPath(memo.file) as TFile | null;
-    if (!file) return;
+    if (!file) throw new Error(t("error.originNotFound"));
+    let raw = await this.app.vault.read(file);
+    this.locateMemo(memo, raw);
 
     // v1.1.9: 先备份到回收站（失败不阻塞删除，只打 console）
     if (this.settings.useTrash) {
@@ -406,11 +356,11 @@ export class MemoStore {
       } catch (err) {
         console.error("[Memoria] 写入回收站失败（将继续执行删除）:", err);
       }
+      raw = await this.app.vault.read(file);
     }
 
-    const raw = await this.app.vault.read(file);
     const lines = raw.split(/\r?\n/);
-    const [s, e] = memo.range;
+    const [s, e] = this.locateMemo(memo, raw).range;
     lines.splice(s, e - s + 1);
 
     // 清理"孤儿"日期标题：若某个 `## yyyy-MM-dd ...` 下方直到下一个 ## 或 # 之前
@@ -562,12 +512,7 @@ export class MemoStore {
     const has = memo.tags.includes(tag);
     let newContent: string;
     if (has) {
-      // 移除所有出现的 #tag（含前缀空白）
-      const re = new RegExp(
-        `\\s*#${escapeRegex(tag)}(?![A-Za-z0-9_\\u4e00-\\u9fff/])`,
-        "g"
-      );
-      newContent = memo.content.replace(re, "");
+      newContent = stripMemoTags(memo.content, new Set([tag])).text;
       newContent = newContent
         .split("\n")
         .map((l) => l.replace(/[ \t]+$/, ""))
@@ -766,9 +711,6 @@ export class MemoStore {
   }
 }
 
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 function pad(n: number): string {
   return n.toString().padStart(2, "0");

@@ -118,14 +118,38 @@ export function parseLocalDateTime(date: string, time: string): Date {
 }
 
 /** 抽取 #tag（支持中文、嵌套如 #父/子） */
-export function extractTags(text: string): string[] {
+function findTags(text: string): Array<{ tag: string; start: number; end: number }> {
+  // Link fragments belong to their destination, not the memo's tags. Keep link
+  // labels and surrounding prose; never change the stored Markdown itself.
+  const tagText = text.replace(
+    /!?\[\[[^\]\n]+\]\]|\]\((?:\\.|[^\\()]|\([^()]*\))*\)|^[ \t]{0,3}\[[^\]\n]+\]:[^\n]*|\b(?:[a-z][a-z0-9+.-]*:\/\/|www\.)[^\s<>]+/gim,
+    (link) => " ".repeat(link.length)
+  );
   const re = /#([A-Za-z0-9_\u4e00-\u9fff][A-Za-z0-9_\u4e00-\u9fff/]*)/g;
-  const set = new Set<string>();
+  const matches: Array<{ tag: string; start: number; end: number }> = [];
   let m: RegExpExecArray | null;
-  while ((m = re.exec(text)) !== null) {
-    set.add(m[1]);
+  while ((m = re.exec(tagText)) !== null) {
+    matches.push({ tag: m[1], start: m.index, end: re.lastIndex });
   }
-  return [...set];
+  return matches;
+}
+
+export function extractTags(text: string): string[] {
+  return [...new Set(findTags(text).map((match) => match.tag))];
+}
+
+/** Remove only real tag occurrences, preserving identical fragments in links. */
+export function stripMemoTags(content: string, selected?: ReadonlySet<string>): { text: string; tags: string[] } {
+  const matches = findTags(content);
+  let text = content;
+  for (let i = matches.length - 1; i >= 0; i--) {
+    const match = matches[i];
+    if (selected && !selected.has(match.tag)) continue;
+    let start = match.start;
+    while (start > 0 && /[ \t]/.test(content[start - 1])) start--;
+    text = text.slice(0, start) + text.slice(match.end);
+  }
+  return { text, tags: [...new Set(matches.map((match) => match.tag))] };
 }
 
 /** 是否包含图片：Markdown ![](url) 或 Obsidian 风格 ![[xxx.png]] */

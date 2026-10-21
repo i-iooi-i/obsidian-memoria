@@ -4,19 +4,20 @@ import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
 import {
   Memo,
   RESERVED_TAGS,
-  VIEW_TYPE_MEMORIA,
+  MemoriaSettings,
   VIEW_TYPE_MEMORIA_STATS,
 } from "./types";
 import type { MemoStore } from "./store";
 import { t, getCurrentLocale } from "./i18n";
 import { MemoriaView } from "./view";
+import { openMemoriaView } from "./workspace";
 
 export class StatsView extends ItemView {
   private memos: Memo[] = [];
   private unsubscribe: (() => void) | null = null;
   private workspaceLeafEl: HTMLElement | null = null;
 
-  constructor(leaf: WorkspaceLeaf, private store: MemoStore) {
+  constructor(leaf: WorkspaceLeaf, private store: MemoStore, private settings: MemoriaSettings) {
     super(leaf);
   }
 
@@ -201,13 +202,7 @@ export class StatsView extends ItemView {
   }
 
   private async jumpToDate(date: string): Promise<void> {
-    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_MEMORIA);
-    let leaf = leaves[0];
-    if (!leaf) {
-      leaf = this.app.workspace.getLeaf("tab");
-      await leaf.setViewState({ type: VIEW_TYPE_MEMORIA, active: true });
-    }
-    await this.app.workspace.revealLeaf(leaf);
+    const leaf = await openMemoriaView(this.app, this.settings);
     if (leaf.view instanceof MemoriaView) leaf.view.focusOnDate(date);
   }
 

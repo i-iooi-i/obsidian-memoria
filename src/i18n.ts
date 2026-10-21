@@ -174,6 +174,7 @@ const zhCN: Dict = {
   "notice.deleted": "已删除",
   "notice.imageFailed": "图片保存失败：{msg}",
   "notice.saveFailed": "保存失败：{msg}",
+  "notice.actionFailed": "操作未完成：{msg}",
   "notice.invalidTime": "时间格式不合法，请重新选择",
   "notice.exportEmpty": "当前筛选没有可导出的笔记",
   "notice.exportFailed": "导出失败：{msg}",
@@ -409,6 +410,11 @@ const zhCN: Dict = {
   "settings.defaultOverview.calendar": "📅 月历",
   "settings.defaultOverview.buddy": "🐾 宠物",
   "settings.openOnStartup.name": "启动时打开 Memoria",
+  "settings.openLocation.name": "默认打开位置",
+  "settings.openLocation.desc": "桌面端新开 Memoria 时使用的位置。已有页面会在原处打开，手机端仍在主窗口打开。",
+  "settings.openLocation.main": "主窗口",
+  "settings.openLocation.left": "左侧栏",
+  "settings.openLocation.right": "右侧栏",
   "settings.openOnStartup.desc": "Obsidian 恢复完工作区后，自动打开或切换到 Memoria。不会关闭已有标签页。",
 
   // v2.1.0: 宠物系统
@@ -738,6 +744,7 @@ const enUS: Dict = {
   "notice.deleted": "Deleted",
   "notice.imageFailed": "Image save failed: {msg}",
   "notice.saveFailed": "Save failed: {msg}",
+  "notice.actionFailed": "Operation could not be completed: {msg}",
   "notice.invalidTime": "Invalid datetime, please re-select",
   "notice.exportEmpty": "No memos to export in current filter",
   "notice.exportFailed": "Export failed: {msg}",
@@ -973,6 +980,11 @@ const enUS: Dict = {
   "settings.defaultOverview.calendar": "📅 Calendar",
   "settings.defaultOverview.buddy": "🐾 Buddy",
   "settings.openOnStartup.name": "Open Memoria on startup",
+  "settings.openLocation.name": "Default opening location",
+  "settings.openLocation.desc": "Where to open a new Memoria view on desktop. Existing views keep their position; mobile opens in the main area.",
+  "settings.openLocation.main": "Main area",
+  "settings.openLocation.left": "Left sidebar",
+  "settings.openLocation.right": "Right sidebar",
   "settings.openOnStartup.desc": "Open or reveal Memoria after Obsidian restores the workspace. Existing tabs remain open.",
 
   // v2.1.0: Buddy companion system

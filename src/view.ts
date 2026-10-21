@@ -14,6 +14,8 @@ import {
 } from "obsidian";
 import { Memo, MemoriaSettings, RESERVED_TAGS, VIEW_TYPE_MEMORIA, VIEW_TYPE_MEMORIA_STATS, VIEW_TYPE_MEMORIA_YEAR } from "./types";
 import { MemoStore } from "./store";
+import { extractTags, stripMemoTags } from "./parser";
+import { createMainLeaf } from "./workspace";
 import { TagSuggest } from "./tag-suggest";
 import { extractImages, renderImageGrid, openLightbox } from "./image-grid";
 import { renderCalendar } from "./calendar";
@@ -84,6 +86,9 @@ export class MemoriaView extends ItemView {
   private imagePickerEl: HTMLInputElement | null = null;
   private listEl!: HTMLElement;
   private sidebarEl!: HTMLElement;
+  private sidebarToggleEl: HTMLButtonElement | null = null;
+  private layoutObserver: ResizeObserver | null = null;
+  private narrowSidebarLayout = false;
   private searchEl!: HTMLInputElement;
   private childComponent = new Component();
   /** v1.1.14: 改为按 settings.pageSize 初始化，不再硬编码 50 */
@@ -183,6 +188,9 @@ export class MemoriaView extends ItemView {
     this.workspaceLeafEl?.addClass("memoria-workspace-leaf");
     this.contentEl.addClass("memoria-root");
     this.buildLayout();
+    this.syncSidebarLayout();
+    this.layoutObserver = new ResizeObserver(() => this.syncSidebarLayout());
+    this.layoutObserver.observe(this.contentEl);
     this.unsubscribe = this.store.onChange(() => this.renderAll());
 
     // v2.0.14: Obsidian 内置命令「在新标签页中打开光标处链接」默认占用 Ctrl+Enter。
@@ -224,6 +232,9 @@ export class MemoriaView extends ItemView {
   }
 
   async onClose(): Promise<void> {
+    this.layoutObserver?.disconnect();
+    this.layoutObserver = null;
+    this.sidebarToggleEl = null;
     this.workspaceLeafEl?.removeClass("memoria-workspace-leaf");
     this.workspaceLeafEl = null;
     this.disposeImagePicker();
@@ -359,7 +370,7 @@ export class MemoriaView extends ItemView {
         await this.app.workspace.revealLeaf(existing[0]);
         return;
       }
-      const leaf = this.app.workspace.getLeaf("tab");
+      const leaf = createMainLeaf(this.app);
       await leaf.setViewState({
         type: VIEW_TYPE_MEMORIA_YEAR,
         active: true,
@@ -385,7 +396,7 @@ export class MemoriaView extends ItemView {
         await this.app.workspace.revealLeaf(existing[0]);
         return;
       }
-      const leaf = this.app.workspace.getLeaf("tab");
+      const leaf = createMainLeaf(this.app);
       await leaf.setViewState({
         type: VIEW_TYPE_MEMORIA_STATS,
         active: true,
@@ -404,20 +415,7 @@ export class MemoriaView extends ItemView {
         title: t("toolbar.toggleSidebar"),
       },
     });
-    const syncSidebarToggleIcon = () => {
-      toggleBtn.empty();
-      if (this.isMobileSidebarLayout()) {
-        setIcon(toggleBtn, "menu");
-      } else {
-        setIcon(
-          toggleBtn,
-          this.contentEl.hasClass("memoria-sidebar-collapsed")
-            ? "panel-left-open"
-            : "panel-left-close"
-        );
-      }
-    };
-    syncSidebarToggleIcon();
+    this.sidebarToggleEl = toggleBtn;
     toggleBtn.addEventListener("click", () => {
       if (this.isMobileSidebarLayout()) {
         this.toggleSidebar(!this.contentEl.hasClass("memoria-sidebar-open"));
@@ -426,9 +424,15 @@ export class MemoriaView extends ItemView {
           !this.contentEl.hasClass("memoria-sidebar-collapsed")
         );
       }
-      syncSidebarToggleIcon();
     });
-    this.registerDomEvent(window, "resize", syncSidebarToggleIcon);
+    this.registerDomEvent(this.contentEl, "keydown", (event) => {
+      if (event.key === "Escape" && this.contentEl.hasClass("memoria-sidebar-open")) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.toggleSidebar(false);
+        this.sidebarToggleEl?.focus();
+      }
+    });
 
     // 输入卡片
     this.buildInputCard(main);
@@ -519,11 +523,10 @@ export class MemoriaView extends ItemView {
     this.syncContentWidth();
   }
 
-  /** v2.2.0: 根据 settings.mobileInputStyle 同步 root 上的 .memoria-input-fab-mode 类。
-   *  CSS 媒体查询会在桌面端忽略所有 fab-mode 规则，所以这里不需要判断设备 —— 闭眼加就行。
-   *  在 onOpen / renderAll / 设置变更后都调用一次，保证 class 跟 settings 一致。 */
+  /** Narrow desktop panels keep capture inline; mobile keeps its keyboard-safe FAB. */
   private syncFabMode(): void {
-    const isFab = this.settings.mobileInputStyle === "fab";
+    const isFab = this.settings.mobileInputStyle === "fab" &&
+      !this.contentEl.hasClass("memoria-narrow-panel");
     if (isFab) {
       this.contentEl.addClass("memoria-input-fab-mode");
     } else {
@@ -569,7 +572,7 @@ export class MemoriaView extends ItemView {
    *  External URI entry points call this after revealing the Memoria leaf. */
   openCaptureInput(): void {
     this.syncFabMode();
-    if (this.settings.mobileInputStyle === "fab") {
+    if (this.contentEl.hasClass("memoria-input-fab-mode")) {
       this.expandFabInput();
       return;
     }
@@ -1443,6 +1446,7 @@ export class MemoriaView extends ItemView {
   private async submitMemo(): Promise<void> {
     const text = this.inputEl.value.trim();
     if (!text) return;
+    const wasEditing = this.editingMemo !== null;
     try {
       if (this.editingMemo) {
         // v1.6.0: 编辑模式可以同时改时间和内容。
@@ -1481,7 +1485,7 @@ export class MemoriaView extends ItemView {
       // v1.1.14: 接入 settings.clearAfterSave（之前无条件清空，设置项形同虚设）
       //   编辑模式下 exitEditMode() 已经把 inputEl 恢复为草稿，此处不再强清；
       //   新建模式按用户设置决定。
-      if (this.settings.clearAfterSave) {
+      if (!wasEditing && this.settings.clearAfterSave) {
         this.inputEl.value = "";
         this.clearDraft();
       }
@@ -1496,7 +1500,7 @@ export class MemoriaView extends ItemView {
       //   被算成约 98px > expandedMin 96 → autoResize 设 inline height=98px →
       //   后续 blur 移除 is-focused 让 CSS min-height 变 40，但 inline height=98px
       //   优先级更高，textarea 死死卡在 98px。
-      if (!this.editingMemo && this.settings.clearAfterSave) {
+      if (!wasEditing && this.settings.clearAfterSave) {
         this.inputEl.blur();
       }
       // v1.1.8: 清空后高度回到 min；没清空也重算一次（autoResize 幂等）
@@ -1507,7 +1511,7 @@ export class MemoriaView extends ItemView {
       //   - 仅 fab 模式 + 新建（不是编辑）+ 已开启清空 时收起
       //   - 不打扰编辑模式（编辑路径自有逻辑）
       if (
-        !this.editingMemo &&
+        !wasEditing &&
         this.settings.clearAfterSave &&
         this.settings.mobileInputStyle === "fab"
       ) {
@@ -1527,14 +1531,7 @@ export class MemoriaView extends ItemView {
   private appendActiveTagIfMissing(text: string): string {
     const activeTag = this.filter.tag;
     if (!activeTag) return text;
-    // 提取文本里已经存在的标签
-    // 简化版：用 #xxx 正则扫描（足够覆盖普通使用场景）
-    const tagRe = /#([A-Za-z0-9_\u4e00-\u9fff/]+)/g;
-    const existingTags = new Set<string>();
-    let m: RegExpExecArray | null;
-    while ((m = tagRe.exec(text)) !== null) {
-      existingTags.add(m[1]);
-    }
+    const existingTags = new Set(extractTags(text));
     // 已存在该标签或其子标签 → 不追加
     if (existingTags.has(activeTag)) return text;
     for (const ex of existingTags) {
@@ -1590,18 +1587,61 @@ export class MemoriaView extends ItemView {
   }
 
   private isMobileSidebarLayout(): boolean {
-    return window.innerWidth <= 680;
+    return this.narrowSidebarLayout;
+  }
+
+  private syncSidebarLayout(): void {
+    const width = this.contentEl.clientWidth;
+    if (!width) return; // Hidden tabs should keep their last measured layout.
+    // Mobile drawer CSS follows the window breakpoint; desktop side panes have
+    // their own width independently of the application window.
+    const layoutWidth = Platform.isMobile
+      ? (this.contentEl.ownerDocument.defaultView?.innerWidth ?? width)
+      : width;
+    const narrow = layoutWidth <= 680;
+    if (narrow !== this.narrowSidebarLayout) {
+      this.contentEl.removeClass("memoria-sidebar-open");
+    }
+    this.narrowSidebarLayout = narrow;
+    this.contentEl.toggleClass("memoria-narrow-panel", narrow && !Platform.isMobile);
+    if (!Platform.isMobile) {
+      this.contentEl.toggleClass("memoria-sidebar-collapsed", !narrow && this.settings.sidebarCollapsed);
+    } else if (narrow) {
+      this.contentEl.removeClass("memoria-sidebar-collapsed");
+    }
+    this.syncFabMode();
+    this.syncSidebarControls();
+  }
+
+  private syncSidebarControls(): void {
+    const open = this.isMobileSidebarLayout()
+      ? this.contentEl.hasClass("memoria-sidebar-open")
+      : !this.contentEl.hasClass("memoria-sidebar-collapsed");
+    this.sidebarEl.inert = !open;
+    this.sidebarEl.setAttr("aria-hidden", String(!open));
+    if (this.sidebarToggleEl) {
+      this.sidebarToggleEl.setAttr("aria-expanded", String(open));
+      setIcon(this.sidebarToggleEl, this.isMobileSidebarLayout()
+        ? "menu" : open ? "panel-left-close" : "panel-left-open");
+    }
   }
 
   /** 切换侧栏抽屉（移动端用） */
   private toggleSidebar(open: boolean): void {
     this.contentEl.toggleClass("memoria-sidebar-open", open);
+    this.syncSidebarControls();
   }
 
   /** 收起桌面侧栏，让主内容区获得完整宽度 */
   private toggleDesktopSidebar(collapsed: boolean): void {
+    if (!Platform.isMobile) this.settings.sidebarCollapsed = collapsed;
     this.contentEl.toggleClass("memoria-sidebar-collapsed", collapsed);
     if (collapsed) this.toggleSidebar(false);
+    this.syncSidebarControls();
+    if (Platform.isMobile) return;
+    void this.plugin.saveSettings().catch((error: unknown) => {
+      console.error("[Memoria] Failed to save sidebar state:", error);
+    });
   }
 
   /** v2.0.0: 导出当前筛选结果到 vault 的 Memoria/exports/ 目录 */
@@ -1626,7 +1666,7 @@ export class MemoriaView extends ItemView {
       //                  → 只发 Notice 告知路径，用户可在 vault 外用浏览器 / 编辑器打开
       const file = this.app.vault.getAbstractFileByPath(path);
       if (file instanceof TFile && format === "md") {
-        await this.app.workspace.getLeaf("tab").openFile(file);
+        await createMainLeaf(this.app).openFile(file);
       }
     } catch (e) {
       console.error(e);
@@ -1861,6 +1901,7 @@ export class MemoriaView extends ItemView {
     //   让用户在设置页切换 mobileInputStyle 后立即生效（store.notifyChange 会触发 renderAll）
     this.syncFabMode();
     this.syncContentWidth();
+    this.syncSidebarLayout();
     this.renderSidebar();
     this.renderList();
   }
@@ -3111,58 +3152,13 @@ export class MemoriaView extends ItemView {
         (this.editingMemo === memo ? " is-editing" : "") +
         moodCls,
     });
-    // 双击卡片进入编辑模式
+    // Desktop drag selects text; double-click still edits. Mobile keeps native selection.
     card.addEventListener("dblclick", (e) => {
-      // 避免双击图片/链接时误触
-      const target = e.target as HTMLElement;
-      if (target.closest(".memoria-img-cell")) return;
-      if (target.tagName === "A") return;
+      if (Platform.isMobile) return;
+      const target = e.target as Element;
+      if (target.closest("a, button, input, textarea, select, img, .memoria-img-cell, .memoria-tag-pill")) return;
       this.enterEditMode(memo);
     });
-
-    // v1.4.11: 移动端没有 dblclick，改用长按 500ms 触发编辑。
-    //   避开图片/链接/复选框/按钮（这些自己有手势语义）。
-    //   正常点击/拖拽不会触发（pointermove 超过 6px 直接取消）。
-    if (Platform.isMobile) {
-      let pressTimer: number | null = null;
-      let startX = 0;
-      let startY = 0;
-      const cancel = () => {
-        if (pressTimer !== null) {
-          window.clearTimeout(pressTimer);
-          pressTimer = null;
-        }
-      };
-      card.addEventListener("pointerdown", (e) => {
-        const t = e.target as HTMLElement;
-        if (
-          t.closest(".memoria-img-cell") ||
-          t.closest("a") ||
-          t.closest("button") ||
-          t.closest('input[type="checkbox"]')
-        ) {
-          return;
-        }
-        startX = e.clientX;
-        startY = e.clientY;
-        pressTimer = window.setTimeout(() => {
-          pressTimer = null;
-          this.enterEditMode(memo);
-        }, 500);
-      });
-      card.addEventListener("pointermove", (e) => {
-        if (pressTimer === null) return;
-        if (
-          Math.abs(e.clientX - startX) > 6 ||
-          Math.abs(e.clientY - startY) > 6
-        ) {
-          cancel();
-        }
-      });
-      card.addEventListener("pointerup", cancel);
-      card.addEventListener("pointercancel", cancel);
-      card.addEventListener("pointerleave", cancel);
-    }
 
     const head = card.createDiv({ cls: "memoria-card-head" });
     const timeWrap = head.createDiv({ cls: "memoria-card-time-wrap" });
@@ -3619,16 +3615,7 @@ export class MemoriaView extends ItemView {
   }
 
   private stripTags(content: string): { text: string; tags: string[] } {
-    const tags: string[] = [];
-    // v1.1.14: 带前导空白一起剥掉，避免 "一句话 #标签 继续" 剥完后留双空格，
-    //   某些 markdown 解析器会把行尾双空格视作"硬换行"。
-    const text = content.replace(
-      /[ \t]*#([A-Za-z0-9_\u4e00-\u9fff][A-Za-z0-9_\u4e00-\u9fff/]*)/g,
-      (_m, g1: string) => {
-        if (!tags.includes(g1)) tags.push(g1);
-        return "";
-      }
-    );
+    const { text, tags } = stripMemoTags(content);
     return {
       text: text
         .split("\n")
@@ -3640,6 +3627,11 @@ export class MemoriaView extends ItemView {
     };
   }
 
+  private reportMemoActionError(error: unknown): void {
+    console.error("[Memoria] Memo operation failed:", error);
+    new Notice(t("notice.actionFailed", { msg: error instanceof Error ? error.message : String(error) }));
+  }
+
   private showMemoMenu(evt: MouseEvent, memo: Memo): void {
     const menu = new Menu();
     menu.addItem((item) =>
@@ -3647,8 +3639,12 @@ export class MemoriaView extends ItemView {
         .setTitle(memo.isPinned ? t("card.unpin") : t("card.pin"))
         .setIcon(memo.isPinned ? "pin-off" : "pin")
         .onClick(async () => {
-          await this.store.togglePinned(memo);
-          new Notice(memo.isPinned ? t("notice.unpinned") : t("notice.pinned"));
+          try {
+            await this.store.togglePinned(memo);
+            new Notice(memo.isPinned ? t("notice.unpinned") : t("notice.pinned"));
+          } catch (error) {
+            this.reportMemoActionError(error);
+          }
         })
     );
     menu.addItem((item) =>
@@ -3656,10 +3652,14 @@ export class MemoriaView extends ItemView {
         .setTitle(memo.isStarred ? t("card.unstar") : t("card.star"))
         .setIcon(memo.isStarred ? "star-off" : "star")
         .onClick(async () => {
-          await this.store.toggleStarred(memo);
-          new Notice(
-            memo.isStarred ? t("notice.unstarred") : t("notice.starred")
-          );
+          try {
+            await this.store.toggleStarred(memo);
+            new Notice(
+              memo.isStarred ? t("notice.unstarred") : t("notice.starred")
+            );
+          } catch (error) {
+            this.reportMemoActionError(error);
+          }
         })
     );
     menu.addSeparator();
@@ -3710,15 +3710,19 @@ export class MemoriaView extends ItemView {
           //       activeDocument.body，导致输入框 textarea 需要再点击一次才能获得光标。
           const ok = await this.confirmAsync(t("notice.confirmDelete"));
           if (!ok) return;
-          await this.store.deleteMemo(memo);
-          // v1.1.9: 回收站提示（只在开启时）
-          new Notice(
-            this.settings.useTrash
-              ? t("notice.deletedTrash")
-              : t("notice.deleted")
-          );
-          // 保险：让 textarea 失焦再聚焦，避免 DOM 重建导致的焦点丢失
-          this.restoreInputFocus();
+          try {
+            await this.store.deleteMemo(memo);
+            // v1.1.9: 回收站提示（只在开启时）
+            new Notice(
+              this.settings.useTrash
+                ? t("notice.deletedTrash")
+                : t("notice.deleted")
+            );
+            // 保险：让 textarea 失焦再聚焦，避免 DOM 重建导致的焦点丢失
+            this.restoreInputFocus();
+          } catch (error) {
+            this.reportMemoActionError(error);
+          }
         })
     );
     menu.showAtMouseEvent(evt);
@@ -3851,10 +3855,7 @@ export class MemoriaView extends ItemView {
     if (this.editingMemo) this.exitEditMode();
 
     // 去掉保留标签（#置顶 #收藏），避免引用时带上
-    const cleaned = memo.content
-      .replace(/\s*#置顶(?![A-Za-z0-9_\u4e00-\u9fff/])/g, "")
-      .replace(/\s*#收藏(?![A-Za-z0-9_\u4e00-\u9fff/])/g, "")
-      .trim();
+    const cleaned = stripMemoTags(memo.content, RESERVED_TAGS).text.trim();
 
     // 每一行都加 > 前缀
     const quoted = cleaned

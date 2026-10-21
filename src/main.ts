@@ -22,12 +22,15 @@ import { MemoriaSettingTab } from "./settings";
 import { StatsView } from "./stats";
 import { YearPanoramaView } from "./year-panorama";
 import { initLocale, t } from "./i18n";
+import { createMainLeaf, openMemoriaView } from "./workspace";
 
 export default class MemoriaPlugin extends Plugin {
   settings!: MemoriaSettings;
   store!: MemoStore;
+  private unloaded = false;
 
   async onload(): Promise<void> {
+    this.unloaded = false;
     await this.loadSettings();
 
     // v2.0.0: 初始化多语言（根据 settings.language）
@@ -42,11 +45,11 @@ export default class MemoriaPlugin extends Plugin {
     );
     this.registerView(
       VIEW_TYPE_MEMORIA_STATS,
-      (leaf: WorkspaceLeaf) => new StatsView(leaf, this.store)
+      (leaf: WorkspaceLeaf) => new StatsView(leaf, this.store, this.settings)
     );
     this.registerView(
       VIEW_TYPE_MEMORIA_YEAR,
-      (leaf: WorkspaceLeaf) => new YearPanoramaView(leaf, this.store)
+      (leaf: WorkspaceLeaf) => new YearPanoramaView(leaf, this.store, this.settings)
     );
 
     // Ribbon 按钮
@@ -109,7 +112,9 @@ export default class MemoriaPlugin extends Plugin {
     this.registerEvent(
       this.app.vault.on("modify", (f) => {
         if (f instanceof TFile && this.store.isInFolder(f)) {
-          void this.store.reloadFile(f);
+          void this.store.reloadFile(f).catch((err: unknown) => {
+            console.error("[Memoria] Failed to reload modified note:", err);
+          });
         }
       })
     );
@@ -120,8 +125,12 @@ export default class MemoriaPlugin extends Plugin {
     );
     this.registerEvent(
       this.app.vault.on("create", (f) => {
+        // Vault initialization emits create for existing files, including attachments.
+        if (!this.app.workspace.layoutReady) return;
         if (f instanceof TFile && this.store.isInFolder(f)) {
-          void this.store.reloadFile(f);
+          void this.store.reloadFile(f).catch((err: unknown) => {
+            console.error("[Memoria] Failed to load created note:", err);
+          });
         }
       })
     );
@@ -129,7 +138,9 @@ export default class MemoriaPlugin extends Plugin {
       this.app.vault.on("rename", (f, old) => {
         this.store.removeFile(old);
         if (f instanceof TFile && this.store.isInFolder(f)) {
-          void this.store.reloadFile(f);
+          void this.store.reloadFile(f).catch((err: unknown) => {
+            console.error("[Memoria] Failed to reload renamed note:", err);
+          });
         }
       })
     );
@@ -137,6 +148,11 @@ export default class MemoriaPlugin extends Plugin {
     this.addSettingTab(new MemoriaSettingTab(this.app, this));
 
     this.app.workspace.onLayoutReady(() => {
+      if (this.unloaded) return;
+      // One Markdown-only scan also populates restored statistics/calendar views.
+      void this.store.reloadAll().catch((err: unknown) => {
+        console.error("[Memoria] Failed to load notes after startup:", err);
+      });
       if (!this.settings.openOnStartup) return;
       void this.activateView().catch((err: unknown) => {
         console.error("[Memoria] Failed to open on startup:", err);
@@ -145,6 +161,7 @@ export default class MemoriaPlugin extends Plugin {
   }
 
   onunload(): void {
+    this.unloaded = true;
     // 由 Obsidian 自动清理视图
   }
 
@@ -155,6 +172,10 @@ export default class MemoriaPlugin extends Plugin {
         ? (loaded as Partial<MemoriaSettings>)
         : {};
     this.settings = { ...DEFAULT_SETTINGS, ...persisted };
+    if (!["main", "left", "right"].includes(this.settings.openLocation)) {
+      this.settings.openLocation = "main";
+    }
+    this.settings.sidebarCollapsed = this.settings.sidebarCollapsed === true;
   }
 
   async saveSettings(): Promise<void> {
@@ -169,31 +190,11 @@ export default class MemoriaPlugin extends Plugin {
   }
 
   async activateView(): Promise<void> {
-    const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_MEMORIA);
-    if (existing.length) {
-      await this.app.workspace.revealLeaf(existing[0]);
-      return;
-    }
-    const leaf = this.app.workspace.getLeaf("tab");
-    await leaf.setViewState({
-      type: VIEW_TYPE_MEMORIA,
-      active: true,
-    });
-    await this.app.workspace.revealLeaf(leaf);
+    await openMemoriaView(this.app, this.settings);
   }
 
   private async activateCaptureView(): Promise<void> {
-    const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_MEMORIA);
-    const leaf = existing[0] ?? this.app.workspace.getLeaf("tab");
-
-    if (!existing.length) {
-      await leaf.setViewState({
-        type: VIEW_TYPE_MEMORIA,
-        active: true,
-      });
-    }
-
-    await this.app.workspace.revealLeaf(leaf);
+    const leaf = await openMemoriaView(this.app, this.settings);
     if (leaf.view instanceof MemoriaView) {
       leaf.view.openCaptureInput();
     }
@@ -207,7 +208,7 @@ export default class MemoriaPlugin extends Plugin {
       await this.app.workspace.revealLeaf(existing[0]);
       return;
     }
-    const leaf = this.app.workspace.getLeaf("tab");
+    const leaf = createMainLeaf(this.app);
     await leaf.setViewState({
       type: VIEW_TYPE_MEMORIA_STATS,
       active: true,
@@ -223,7 +224,7 @@ export default class MemoriaPlugin extends Plugin {
       await this.app.workspace.revealLeaf(existing[0]);
       return;
     }
-    const leaf = this.app.workspace.getLeaf("tab");
+    const leaf = createMainLeaf(this.app);
     await leaf.setViewState({
       type: VIEW_TYPE_MEMORIA_YEAR,
       active: true,

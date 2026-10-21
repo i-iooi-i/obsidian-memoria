@@ -85,6 +85,8 @@ export interface MemoriaSettings {
   defaultOverviewMode: "heatmap" | "calendar" | "buddy";
   /** Obsidian 恢复完工作区后，是否自动打开或切换到 Memoria。 */
   openOnStartup: boolean;
+  openLocation: "main" | "left" | "right";
+  sidebarCollapsed: boolean;
   /** v2.1.0: 宠物系统
    *   未孵化时 buddy 字段为 null；首次切到宠物视图时引导孵化 */
   buddy: BuddyData | null;
@@ -129,6 +131,8 @@ export const DEFAULT_SETTINGS: MemoriaSettings = {
   sendHotkey: "ctrl-enter",
   defaultOverviewMode: "heatmap",
   openOnStartup: false,
+  openLocation: "main",
+  sidebarCollapsed: false,
   buddy: null,
   mobileInputStyle: "fab",
 };

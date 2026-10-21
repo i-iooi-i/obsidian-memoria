@@ -4,7 +4,8 @@
 
 import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
 import { MemoStore } from "./store";
-import { VIEW_TYPE_MEMORIA_YEAR, VIEW_TYPE_MEMORIA } from "./types";
+import { VIEW_TYPE_MEMORIA_YEAR, MemoriaSettings } from "./types";
+import { openMemoriaView } from "./workspace";
 import { MemoriaView } from "./view";
 import { t } from "./i18n";
 
@@ -22,7 +23,7 @@ export class YearPanoramaView extends ItemView {
   private unsubscribe: (() => void) | null = null;
   private displayYear: number;
 
-  constructor(leaf: WorkspaceLeaf, private store: MemoStore) {
+  constructor(leaf: WorkspaceLeaf, private store: MemoStore, private settings: MemoriaSettings) {
     super(leaf);
     this.displayYear = new Date().getFullYear();
   }
@@ -203,16 +204,7 @@ export class YearPanoramaView extends ItemView {
    *    侧栏月历点日期的同一套 filter.date 机制，才能真正筛出该日笔记。
    */
   private async jumpToDate(date: string): Promise<void> {
-    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_MEMORIA);
-    let leaf = leaves[0];
-    if (!leaf) {
-      leaf = this.app.workspace.getLeaf("tab");
-      await leaf.setViewState({
-        type: VIEW_TYPE_MEMORIA,
-        active: true,
-      });
-    }
-    await this.app.workspace.revealLeaf(leaf);
+    const leaf = await openMemoriaView(this.app, this.settings);
 
     const view = leaf.view;
     if (view instanceof MemoriaView) {

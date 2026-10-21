@@ -224,6 +224,22 @@ export class MemoriaSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName(t("settings.openLocation.name"))
+      .setDesc(t("settings.openLocation.desc"))
+      .addDropdown((dropdown) =>
+        dropdown
+          .addOption("main", t("settings.openLocation.main"))
+          .addOption("left", t("settings.openLocation.left"))
+          .addOption("right", t("settings.openLocation.right"))
+          .setValue(this.plugin.settings.openLocation)
+          .onChange(async (value) => {
+            if (value !== "main" && value !== "left" && value !== "right") return;
+            this.plugin.settings.openLocation = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
       .setName(t("settings.heading.newFeatures"))
       .setHeading();
 

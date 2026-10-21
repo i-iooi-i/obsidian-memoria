@@ -71,7 +71,8 @@ Memoria is exactly that: a flomo-style quick-capture experience inside Obsidian,
 - Task lists can be checked — auto-writes back to md
 - Card right-click menu: Pin / Star / Edit / Quote / Save as image / Open source file
 - Soft-delete to `_trash.md` (optional)
-- Mobile: drawer sidebar, long-press to edit, touch-friendly pickers
+- Desktop: choose the main area, left sidebar, or right sidebar as the default opening location; remember the collapsed sidebar state
+- Mobile: drawer sidebar, long-press text selection, editing through the memo menu, touch-friendly pickers
 
 **Multi-language**
 - UI supports Chinese and English — switch in Settings
@@ -133,7 +134,7 @@ Then in Obsidian → Settings → Community plugins → enable **Memoria** → c
 | Send current input | `Ctrl/Cmd + Enter` |
 | Quick capture (global popup) | `Ctrl/Cmd + Shift + M` |
 | Indent / outdent list item | `Tab` / `Shift+Tab` |
-| Enter edit mode | Double-click card (long-press on mobile) |
+| Enter edit mode | Double-click card (use the memo menu on mobile) |
 | Exit edit mode | `Esc` |
 
 ---
